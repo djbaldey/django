@@ -541,10 +541,10 @@ class PermissionTestCase(TestCase):
         ]
         create_permissions(auth_app_config, verbosity=0)
 
-        # add/change/delete permission by default + custom permission
+        # view/add/change/delete permission by default + custom permission
         self.assertEqual(models.Permission.objects.filter(
             content_type=permission_content_type,
-        ).count(), 4)
+        ).count(), 5)
 
         models.Permission.objects.filter(content_type=permission_content_type).delete()
         models.Permission._meta.default_permissions = []
@@ -563,5 +563,5 @@ class PermissionTestCase(TestCase):
         models.Permission._meta.verbose_name = "some ridiculously long verbose name that is out of control" * 5
 
         six.assertRaisesRegex(self, exceptions.ValidationError,
-            "The verbose_name of auth.permission is longer than 244 characters",
+            "The verbose_name of auth.permission is longer than 225 characters",
             create_permissions, auth_app_config, verbosity=0)

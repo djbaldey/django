@@ -5,6 +5,7 @@ Field classes.
 from __future__ import unicode_literals
 
 import copy
+import json
 import datetime
 import os
 import re
@@ -45,6 +46,7 @@ __all__ = (
     'ComboField', 'MultiValueField', 'FloatField', 'DecimalField',
     'SplitDateTimeField', 'IPAddressField', 'GenericIPAddressField', 'FilePathField',
     'SlugField', 'TypedChoiceField', 'TypedMultipleChoiceField', 'UUIDField',
+    'JSONField',
 )
 
 
@@ -1279,3 +1281,35 @@ class UUIDField(CharField):
             except ValueError:
                 raise ValidationError(self.error_messages['invalid'], code='invalid')
         return value
+
+
+########################################################################
+#                         Append JSON fields                           #
+########################################################################
+
+
+class JSONField(CharField):
+    default_error_messages = {
+        'invalid': _('Enter a valid JSON.'),
+    }
+
+    def to_python(self, value):
+        if isinstance(value, six.string_types):
+            try:
+                return json.loads(value, **self.load_kwargs)
+            except ValueError:
+                raise ValidationError(self.error_messages['invalid'], code='invalid')
+        return value
+
+    def clean(self, value):
+
+        if not value and not self.required:
+            return None
+
+        # Trap cleaning errors & bubble them up as JSON errors
+        try:
+            return super(JSONField, self).clean(value)
+        except TypeError:
+            raise ValidationError(self.error_messages['invalid'], code='invalid')
+
+

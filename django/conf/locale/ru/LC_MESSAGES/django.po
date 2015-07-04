@@ -11,13 +11,14 @@
 # Jannis Leidel <jannis@leidel.info>, 2011
 # Mikhail Zholobov <legal90@gmail.com>, 2013
 # Алексей Борискин <sun.void@gmail.com>, 2013-2015
+# Григорий Крамаренко <root@rosix.ru>, 2015
 msgid ""
 msgstr ""
 "Project-Id-Version: django\n"
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2015-03-18 09:16+0100\n"
-"PO-Revision-Date: 2015-03-20 11:18+0000\n"
-"Last-Translator: eXtractor <evg.kirov@gmail.com>\n"
+"PO-Revision-Date: 2015-04-04 22:40+1000\n"
+"Last-Translator: Григорий Крамаренко <root@rosix.ru>\n"
 "Language-Team: Russian (http://www.transifex.com/projects/p/django/language/"
 "ru/)\n"
 "MIME-Version: 1.0\n"
@@ -669,6 +670,21 @@ msgstr "Введите весь список значений."
 
 msgid "Enter a valid UUID."
 msgstr "Введите правильный UUID."
+
+msgid "Enter a valid JSON."
+msgstr "Введите правильный JSON."
+
+#, python-format
+msgid "StrictJSONField does not supports PostgreSQL version %(version)s."
+msgstr "StrictJSONField не поддерживает PostgreSQL версии %(version)s."
+
+#, python-format
+msgid ""
+"StrictJSONField work with only django.db.backends.postgresql_psycopg2 "
+"and PostgreSQL version 9.3 and above."
+msgstr ""
+"StrictJSONField работает только с django.db.backends.postgresql_psycopg2 "
+"и PostgreSQL версии 9.3 и выше."
 
 #. Translators: This is the default suffix added to form field labels
 msgid ":"

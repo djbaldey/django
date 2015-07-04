@@ -5,17 +5,15 @@ Serialize data to/from JSON
 # Avoid shadowing the standard library json module
 from __future__ import absolute_import, unicode_literals
 
-import datetime
-import decimal
 import json
 import sys
 
+from django.db.models.fields import JSONEncoder as DjangoJSONEncoder
 from django.core.serializers.base import DeserializationError
 from django.core.serializers.python import (
     Deserializer as PythonDeserializer, Serializer as PythonSerializer,
 )
 from django.utils import six
-from django.utils.timezone import is_aware
 
 
 class Serializer(PythonSerializer):
@@ -83,33 +81,6 @@ def Deserializer(stream_or_string, **options):
         # Map to deserializer error
         six.reraise(DeserializationError, DeserializationError(e), sys.exc_info()[2])
 
-
-class DjangoJSONEncoder(json.JSONEncoder):
-    """
-    JSONEncoder subclass that knows how to encode date/time and decimal types.
-    """
-    def default(self, o):
-        # See "Date Time String Format" in the ECMA-262 specification.
-        if isinstance(o, datetime.datetime):
-            r = o.isoformat()
-            if o.microsecond:
-                r = r[:23] + r[26:]
-            if r.endswith('+00:00'):
-                r = r[:-6] + 'Z'
-            return r
-        elif isinstance(o, datetime.date):
-            return o.isoformat()
-        elif isinstance(o, datetime.time):
-            if is_aware(o):
-                raise ValueError("JSON can't represent timezone-aware times.")
-            r = o.isoformat()
-            if o.microsecond:
-                r = r[:12]
-            return r
-        elif isinstance(o, decimal.Decimal):
-            return str(o)
-        else:
-            return super(DjangoJSONEncoder, self).default(o)
 
 # Older, deprecated class name (for backwards compatibility purposes).
 DateTimeAwareJSONEncoder = DjangoJSONEncoder

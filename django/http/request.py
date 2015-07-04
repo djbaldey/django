@@ -501,9 +501,15 @@ def build_request_repr(request, path_override=None, GET_override=None,
     except Exception:
         meta = '<could not parse>'
     path = path_override if path_override is not None else request.path
-    return force_str('<%s\npath:%s,\nGET:%s,\nPOST:%s,\nCOOKIES:%s,\nMETA:%s>' %
+
+    user = getattr(request, 'user', None)
+    if user and user.is_authenticated():
+        user = user.username
+
+    return force_str('<%s\npath:%s,\nuser:%s,\nGET:%s,\nPOST:%s,\nCOOKIES:%s,\nMETA:%s>' %
                      (request.__class__.__name__,
                       path,
+                      six.text_type(user),
                       six.text_type(get),
                       six.text_type(post),
                       six.text_type(cookies),

@@ -11,7 +11,7 @@ from django.core.exceptions import PermissionDenied
 from django.core.mail import send_mail
 from django.db import models
 from django.db.models.manager import EmptyManager
-from django.utils import six, timezone
+from django.utils import six, timezone, deep
 from django.utils.crypto import get_random_string, salted_hmac
 from django.utils.encoding import python_2_unicode_compatible
 from django.utils.translation import ugettext_lazy as _
@@ -22,8 +22,8 @@ def update_last_login(sender, user, **kwargs):
     A signal receiver which updates the last_login date for
     the user logging in.
     """
-    user.last_login = timezone.now()
-    user.save(update_fields=['last_login'])
+    user.last_login = user.last_activity = timezone.now()
+    user.save(update_fields=['last_login', 'last_activity'])
 user_logged_in.connect(update_last_login)
 
 
@@ -36,6 +36,10 @@ class PermissionManager(models.Manager):
             content_type=ContentType.objects.db_manager(self.db).get_by_natural_key(app_label, model),
         )
 
+    def get_by_perm(self, perm):
+        app_label, codename = perm.split('.')
+        return self.get(codename=codename, content_type__app_label=app_label)
+
 
 @python_2_unicode_compatible
 class Permission(models.Model):
@@ -46,6 +50,8 @@ class Permission(models.Model):
     The permission system is used by the Django admin site, but may also be
     useful in your own code. The Django admin site uses permissions as follows:
 
+        - The "view" permission allows the user's to view the object without
+          the possibility of change.
         - The "add" permission limits the user's ability to view the "add" form
           and add an object.
         - The "change" permission limits a user's ability to view the change
@@ -58,11 +64,11 @@ class Permission(models.Model):
     ones she created herself" or "Mary may only change news stories that have a
     certain status or publication date."
 
-    Three basic permissions -- add, change and delete -- are automatically
+    Four basic permissions -- view, add, change and delete -- are automatically
     created for each Django model.
     """
     name = models.CharField(_('name'), max_length=255)
-    content_type = models.ForeignKey(ContentType)
+    content_type = models.ForeignKey(ContentType, verbose_name=_('content type'))
     codename = models.CharField(_('codename'), max_length=100)
     objects = PermissionManager()
 
@@ -190,11 +196,24 @@ class UserManager(BaseUserManager):
         return self._create_user(username, email, password, True, True,
                                  **extra_fields)
 
+    def in_group(self, group_id, *args, **kwargs):
+        qs = self.get_queryset(*args, **kwargs)
+        qs = qs.extra(
+            select={
+                'in_group': """
+                   SELECT count(*) FROM auth_user_groups
+                    WHERE auth_user_groups.user_id = auth_user.id
+                      AND auth_user_groups.group_id = %s"""
+            },
+            select_params = [group_id],
+        )
+        return qs
 
 @python_2_unicode_compatible
 class AbstractBaseUser(models.Model):
     password = models.CharField(_('password'), max_length=128)
     last_login = models.DateTimeField(_('last login'), blank=True, null=True)
+    last_activity = models.DateTimeField(_('last activity'), blank=True, null=True)
 
     is_active = True
 
@@ -336,7 +355,7 @@ class PermissionsMixin(models.Model):
     def get_all_permissions(self, obj=None):
         return _user_get_all_permissions(self, obj)
 
-    def has_perm(self, perm, obj=None):
+    def has_perm(self, perm, obj=None, check_active=True):
         """
         Returns True if the user has the specified permission. This method
         queries all available auth backends, but returns immediately if any
@@ -345,31 +364,37 @@ class PermissionsMixin(models.Model):
         provided, permissions for this specific object are checked.
         """
 
-        # Active superusers have all permissions.
-        if self.is_active and self.is_superuser:
+        if check_active and not self.is_active:
+            return False
+
+        # Superusers have all permissions.
+        if self.is_superuser:
             return True
 
         # Otherwise we need to check the backends.
         return _user_has_perm(self, perm, obj)
 
-    def has_perms(self, perm_list, obj=None):
+    def has_perms(self, perm_list, obj=None, check_active=True):
         """
         Returns True if the user has each of the specified permissions. If
         object is passed, it checks if the user has all required perms for this
         object.
         """
         for perm in perm_list:
-            if not self.has_perm(perm, obj):
+            if not self.has_perm(perm, obj, check_active):
                 return False
         return True
 
-    def has_module_perms(self, app_label):
+    def has_module_perms(self, app_label, check_active=True):
         """
         Returns True if the user has any permissions in the given app label.
         Uses pretty much the same logic as has_perm, above.
         """
-        # Active superusers have all permissions.
-        if self.is_active and self.is_superuser:
+        if check_active and not self.is_active:
+            return False
+
+        # Superusers have all permissions.
+        if self.is_superuser:
             return True
 
         return _user_has_module_perms(self, app_label)
@@ -389,7 +414,7 @@ class AbstractUser(AbstractBaseUser, PermissionsMixin):
             validators.RegexValidator(r'^[\w.@+-]+$',
                                       _('Enter a valid username. '
                                         'This value may contain only letters, numbers '
-                                        'and @/./+/-/_ characters.'), 'invalid'),
+                                        'and @/./+/-/_ characters.'), 'invalid', flags=32),
         ],
         error_messages={
             'unique': _("A user with that username already exists."),
@@ -405,6 +430,8 @@ class AbstractUser(AbstractBaseUser, PermissionsMixin):
                     'active. Unselect this instead of deleting accounts.'))
     date_joined = models.DateTimeField(_('date joined'), default=timezone.now)
 
+    settings = models.JSONField(_('settings'), null=True, blank=True, editable=False)
+
     objects = UserManager()
 
     USERNAME_FIELD = 'username'
@@ -413,24 +440,87 @@ class AbstractUser(AbstractBaseUser, PermissionsMixin):
     class Meta:
         verbose_name = _('user')
         verbose_name_plural = _('users')
+        permissions = (
+            ('add_superuser', _('Can add superuser')),
+            ('change_superuser', _('Can change superuser')),
+            ('delete_superuser', _('Can delete superuser')),
+            ('add_staff', _('Can add staff')),
+            ('change_staff', _('Can change staff')),
+            ('delete_staff', _('Can delete staff')),
+            ('add_active_user', _('Can add active user')),
+            ('add_user_with_password', _('Can add user with password')),
+            ('change_user_password', _('Can change the user password')),
+            ('change_user_activity', _('Can change the user activity')),
+            ('change_user_groups', _('Can change user groups')),
+            ('change_user_perms', _('Can change user permissions')),
+        )
         abstract = True
 
     def get_full_name(self):
         """
         Returns the first_name plus the last_name, with a space in between.
         """
-        full_name = '%s %s' % (self.first_name, self.last_name)
+        full_name = self.from_settings('full_name',
+                    default='%s %s' % (self.first_name, self.last_name))
         return full_name.strip()
 
     def get_short_name(self):
         "Returns the short name for the user."
-        return self.first_name
+        return self.from_settings('short_name', default=self.first_name)
 
     def email_user(self, subject, message, from_email=None, **kwargs):
         """
         Sends an email to this User.
         """
         send_mail(subject, message, from_email, [self.email], **kwargs)
+
+    def has_online(self):
+        if not self.last_activity:
+            return False
+        return (timezone.now() - self.last_activity).total_seconds() <= USER_ACTIVE_SECONDS
+
+    def set_activity(self):
+        self.last_activity = timezone.now()
+        self.save(update_fields=['last_activity'])
+        return self.last_activity
+
+    def set_settings(self, settings=None, **kwargs):
+        """
+        Simple installation settings, or upgrade part settings
+        """
+        if settings:
+            self.settings = settings
+        else:
+            s = self.settings or dict()
+            s.update(kwargs)
+            self.settings = s
+        self.save(update_fields=['settings'])
+
+        return self.settings
+
+    def to_settings(self, field, value, append_to_list=False, save=False):
+        """
+        Advanced setup configuration parts.
+        Default NOT stored in the database. To change this
+        behavior, you should pass a parameter save=True.
+        """
+        self.settings = deep.to_dict(self.settings, field=field, value=value, append_to_list=append_to_list)
+        if save:
+            self.save(update_fields=['settings'])
+        return self.settings
+
+    def from_settings(self, field, default=None, update=False, delete=False, save=False):
+        """
+        Advanced receiving/removing a portion of the configuration.
+        When receiving can set the specified default value.
+        Default NOT stored in the database. To change this
+        behavior, you should pass a parameter save=True.
+        """
+        value = deep.from_dict(self.settings, field=field, default=default, update=update, delete=delete)
+        if save and (update or delete):
+            self.save(update_fields=['settings'])
+        return value
+
 
 
 class User(AbstractUser):

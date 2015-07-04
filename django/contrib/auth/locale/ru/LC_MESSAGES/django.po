@@ -3,13 +3,14 @@
 # Translators:
 # Jannis Leidel <jannis@leidel.info>, 2011
 # Алексей Борискин <sun.void@gmail.com>, 2012-2015
+# Григорий Крамаренко <root@rosix.ru>, 2015
 msgid ""
 msgstr ""
 "Project-Id-Version: django\n"
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2015-03-18 09:16+0100\n"
-"PO-Revision-Date: 2015-03-21 12:31+0000\n"
-"Last-Translator: Алексей Борискин <sun.void@gmail.com>\n"
+"PO-Revision-Date: 2015-07-02 22:17+1000\n"
+"Last-Translator: Григорий Крамаренко <root@rosix.ru>\n"
 "Language-Team: Russian (http://www.transifex.com/projects/p/django/language/"
 "ru/)\n"
 "MIME-Version: 1.0\n"
@@ -116,8 +117,23 @@ msgstr "рабочий фактор"
 msgid "checksum"
 msgstr "контрольная сумма"
 
+msgid "Can view %s"
+msgstr "Может просматривать %s"
+
+msgid "Can add %s"
+msgstr "Может добавлять %s"
+
+msgid "Can change %s"
+msgstr "Может изменять %s"
+
+msgid "Can delete %s"
+msgstr "Может удалять %s"
+
 msgid "name"
 msgstr "имя"
+
+msgid "content type"
+msgstr "тип контента"
 
 msgid "codename"
 msgstr "кодовое название"
@@ -140,6 +156,9 @@ msgstr "пароль"
 msgid "last login"
 msgstr "последний вход"
 
+msgid "last activity"
+msgstr "последняя активность"
+
 msgid "superuser status"
 msgstr "статус суперпользователя"
 
@@ -153,7 +172,7 @@ msgid ""
 "each of their groups."
 msgstr ""
 "Группы, к которым принадлежит данный пользователь. Пользователь получит все "
-"права, указанные в каждой из его/её групп."
+"права, указанные в каждой из этих групп."
 
 msgid "user permissions"
 msgstr "права пользователя"
@@ -202,17 +221,56 @@ msgid ""
 "Designates whether this user should be treated as active. Unselect this "
 "instead of deleting accounts."
 msgstr ""
-"Отметьте, если пользователь должен считаться активным. Уберите эту отметку "
+"Определяет, должен ли пользователь считаться активным. Уберите эту отметку "
 "вместо удаления учётной записи."
 
 msgid "date joined"
 msgstr "дата регистрации"
+
+msgid "settings"
+msgstr "настройки"
 
 msgid "user"
 msgstr "пользователь"
 
 msgid "users"
 msgstr "пользователи"
+
+msgid "Can add superuser"
+msgstr "Может добавлять суперпользователя"
+
+msgid "Can change superuser"
+msgstr "Может изменять суперпользователя"
+
+msgid "Can delete superuser"
+msgstr "Может удалять суперпользователя"
+
+msgid "Can add staff"
+msgstr "Может добавлять сотрудника"
+
+msgid "Can change staff"
+msgstr "Может изменять сотрудника"
+
+msgid "Can delete staff"
+msgstr "Может удалять сотрудника"
+
+msgid "Can add user with password"
+msgstr "Может добавлять пользователя с паролем"
+
+msgid "Can change the user password"
+msgstr "Может менять пароль пользователя"
+
+msgid "Can add active user"
+msgstr "Может добавлять активного пользователя"
+
+msgid "Can change the user activity"
+msgstr "Может менять активность пользователя"
+
+msgid "Can change user groups"
+msgstr "Может менять группы у пользователей"
+
+msgid "Can change user permissions"
+msgstr "Может менять права у пользователей"
 
 #, python-format
 msgid "Password reset on %(site_name)s"

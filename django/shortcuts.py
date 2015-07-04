@@ -139,6 +139,25 @@ def _get_queryset(klass):
     return manager.all()
 
 
+def get_object_or_none(klass, *args, **kwargs):
+    """
+    Uses get() to return an object, or None if the object
+    does not exist.
+
+    klass may be a Model, Manager, or QuerySet object. All other passed
+    arguments and keyword arguments are used in the get() query.
+
+    Note: Returns None if more than one object is found.
+    """
+    queryset = _get_queryset(klass)
+    try:
+        return queryset.get(*args, **kwargs)
+    except queryset.model.DoesNotExist:
+        return None
+    except queryset.model.MultipleObjectsReturned:
+        return None
+
+
 def get_object_or_404(klass, *args, **kwargs):
     """
     Uses get() to return an object, or raises a Http404 exception if the object

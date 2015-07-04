@@ -3,6 +3,7 @@ from __future__ import unicode_literals
 
 import collections
 import copy
+import json
 import datetime
 import decimal
 import math
@@ -30,6 +31,8 @@ from django.utils.encoding import (smart_text, force_text, force_bytes,
 from django.utils.ipv6 import clean_ipv6_address
 from django.utils import six
 from django.utils.itercompat import is_iterable
+from django.utils.timezone import is_aware
+from django.utils.formats import number_format
 
 # When the _meta object was formalized, this exception was moved to
 # django.core.exceptions. It is retained here for backwards compatibility
@@ -47,6 +50,7 @@ __all__ = [str(x) for x in (
     'NullBooleanField', 'PositiveIntegerField', 'PositiveSmallIntegerField',
     'SlugField', 'SmallIntegerField', 'TextField', 'TimeField', 'URLField',
     'UUIDField',
+    'JSONField', 'StrictJSONField',
 )]
 
 
@@ -2416,3 +2420,224 @@ class UUIDField(Field):
         }
         defaults.update(kwargs)
         return super(UUIDField, self).formfield(**defaults)
+
+
+########################################################################
+#                         Append JSON fields                           #
+########################################################################
+
+
+class JSONEncoder(json.JSONEncoder):
+    """
+    JSONEncoder subclass that knows how to encode date/time, decimal
+    types and Lazy objects.
+    Almost like in original Django, but with additions.
+    This class replaces core.serializers.json.DjangoJSONEncoder.
+    """
+    def default(self, o):
+        # See "Date Time String Format" in the ECMA-262 specification.
+        if isinstance(o, datetime.datetime):
+            r = o.isoformat()
+            if o.microsecond:
+                r = r[:23] + r[26:]
+            if r.endswith('+00:00'):
+                r = r[:-6] + 'Z'
+            return r
+        elif isinstance(o, datetime.date):
+            return o.isoformat()
+        elif isinstance(o, datetime.time):
+            if is_aware(o):
+                raise ValueError("JSON can't represent timezone-aware times.")
+            r = o.isoformat()
+            if o.microsecond:
+                r = r[:12]
+            return r
+        elif isinstance(o, decimal.Decimal):
+            if getattr(settings, 'JSONENCODER_DECIMAL_LOCALE', False):
+                return number_format(o, use_l10n=True, force_grouping=True)
+            else:
+                return force_text(o)
+        elif isinstance(o, (Promise, Exception)):
+            return force_text(o)
+        else:
+            return super(JSONEncoder, self).default(o)
+
+
+class JSONField(TextField):
+    """
+    JSONField is a generic textfield that serializes/deserializes
+    JSON objects: '{...}', '[...]' and 'null'.
+    Other objects do not validate.
+    """
+
+    description = _("JSON data")
+    form_class = forms.JSONField
+
+    def __init__(self, *args, **kwargs):
+
+        self.dump_kwargs = kwargs.pop('dump_kwargs', {
+            'cls': JSONEncoder,
+            'separators': (',', ':')
+        })
+
+        self.load_kwargs = kwargs.pop('load_kwargs', {})
+
+        super(JSONField, self).__init__(*args, **kwargs)
+
+    def _json_loads(self, value):
+        try:
+            return json.loads(value, **self.load_kwargs)
+        except ValueError:
+            raise exceptions.ValidationError(_("Enter a valid JSON."))
+
+    def from_db_value(self, value, expression, connection, context):
+        """
+        When the data is loaded from the database, including in 
+        aggregates and values() calls. 
+        """
+
+        if value is None: return value
+
+        if isinstance(value, six.string_types):
+            return self._json_loads(value)
+
+        return value
+
+    def to_python(self, value):
+        """
+        Convert string to python if necessary.
+        """
+        if value is None or isinstance(value, (list, dict, tuple)):
+            return value
+
+        if isinstance(value, six.string_types):
+            return self._json_loads(value)
+
+        return value
+
+    def get_db_prep_value(self, value, connection, prepared=False):
+        """
+        Convert JSON object to a string
+        """
+
+        if self.null and value is None:
+            return None
+
+        return json.dumps(value, **self.dump_kwargs)
+
+    def get_prep_value(self, value):
+
+        value = super(JSONField, self).get_prep_value(value)
+
+        if isinstance(value, six.string_types) or value is None:
+            return value
+
+        return json.dumps(value)
+
+    def get_prep_lookup(self, lookup_type, value):
+        """
+        We only handle 'exact', 'isnull' and 'in'.
+        All others are errors.
+        """
+        if lookup_type in ('exact', 'isnull'):
+            return self.get_prep_value(value)
+        elif lookup_type == 'in':
+            return [self.get_prep_value(v) for v in value]
+        else:
+            raise TypeError('Lookup type %r not supported.' % lookup_type)
+
+    def value_to_string(self, obj):
+        value = self._get_val_from_obj(obj)
+        return self.get_db_prep_value(value, None)
+
+    def value_from_object(self, obj):
+
+        value = super(JSONField, self).value_from_object(obj)
+
+        if self.null and value is None:
+            return None
+
+        return self.dumps_for_display(value)
+
+    def dumps_for_display(self, value):
+
+        kwargs = { "indent": 2, 'ensure_ascii': False }
+
+        kwargs.update(self.dump_kwargs)
+
+        return json.dumps(value, **kwargs)
+
+    def get_default(self):
+        """
+        Returns the default value for this field.
+
+        The default implementation on models.Field calls force_unicode
+        on the default, which means you can't set arbitrary Python
+        objects as the default. To fix this, we just return the value
+        without calling force_unicode on it. Note that if you set a
+        callable as a default, the field will still call it. It will
+        *not* try to pickle and encode it.
+
+        """
+        if self.has_default():
+
+            if callable(self.default):
+                return self.default()
+
+            return copy.deepcopy(self.default)
+
+        # If the field doesn't have a default, then we punt to models.Field.
+        return super(JSONField, self).get_default()
+
+    def formfield(self, **kwargs):
+
+        defaults = {'form_class': self.form_class, 'widget': forms.JSONField}
+
+        defaults.update(kwargs)
+
+        field = super(JSONField, self).formfield(**defaults)
+
+        if isinstance(field, forms.JSONField):
+            field.load_kwargs = self.load_kwargs
+
+        if not field.help_text:
+            field.help_text = _("Enter a valid JSON.")
+
+        return field
+
+    def db_type(self, connection):
+        """
+        Automatic select better type.
+        """
+        if connection.vendor == 'postgresql':
+            if connection.pg_version >= 90400:
+                return 'jsonb'
+            elif connection.pg_version >= 90300:
+                return 'json'
+
+        return 'text'
+
+
+class StrictJSONField(JSONField):
+    """
+    Only works with PostgreSQL.
+    """
+    def db_type(self, connection):
+        if connection.vendor == 'postgresql':
+            pg_version = connection.pg_version
+            if pg_version >= 90400:
+                return 'jsonb'
+            elif pg_version >= 90300:
+                return 'json'
+            raise exceptions.ValidationError(
+                _("StrictJSONField does not supports PostgreSQL version %(version)s."),
+                code='invalid',
+                params={'version': pg_version},
+            )
+        else:
+            raise exceptions.ValidationError(_(
+                'StrictJSONField work with only django.db.backends.postgresql_psycopg2'
+                ' and PostgreSQL version 9.3 and above.')
+            )
+
+

@@ -59,6 +59,8 @@ class MigrationAutodetector(object):
             # we have a field which also returns a name
             deconstructed = deconstructed[1:]
         path, args, kwargs = deconstructed
+        kwargs.pop('help_text', None)
+        kwargs.pop('verbose_name', None)
         return (
             path,
             [self.deep_deconstruct(value) for value in args],

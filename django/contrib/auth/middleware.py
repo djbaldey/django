@@ -1,9 +1,13 @@
+from django.conf import settings
 from django.contrib import auth
-from django.contrib.auth import load_backend
+from django.contrib.auth import load_backend, logout
 from django.contrib.auth.backends import RemoteUserBackend
 from django.core.exceptions import ImproperlyConfigured
+from django.utils import timezone
 from django.utils.functional import SimpleLazyObject
 
+UNIQUE_SESSION_LIMIT_SECONDS = getattr(settings, 'UNIQUE_SESSION_LIMIT_SECONDS', 0)
+UNIQUE_SESSION_TOKEN_LIMIT_SECONDS = getattr(settings, 'UNIQUE_SESSION_TOKEN_LIMIT_SECONDS', 300)
 
 def get_user(request):
     if not hasattr(request, '_cached_user'):
@@ -118,3 +122,109 @@ class RemoteUserMiddleware(object):
         else:
             if isinstance(stored_backend, RemoteUserBackend):
                 auth.logout(request)
+
+
+class SessionCollector(object):
+    """
+    Collector of sessions for user
+    """
+
+    def __init__(self):
+        self._sessions = {}
+
+    def register(self, request):
+        """
+        Register session by key with creation time
+        """
+        if not request.session.session_key in self._sessions.keys():
+            self._sessions[request.session.session_key] = (timezone.now(), request)
+
+    @property
+    def opened(self):
+        """
+        Return the number of sessions after a flush
+        """
+        self.flush()
+        return len(self._sessions)
+
+    def flush(self, session_limit=UNIQUE_SESSION_LIMIT_SECONDS):
+        """
+        Flush the cache of opened sessions and close expired session
+        """
+        now = timezone.now()
+
+        for session_key, values in self._sessions.items():
+            creation_time, request = values
+            delta = now - creation_time
+            if session_limit and delta.seconds >= session_limit:
+                logout(request)
+            if not request.session.exists(session_key):
+                del self._sessions[session_key]
+
+    def set_unique(self):
+        """
+        Choose the current session, and close the others
+        """
+        current_session_key = self.get_current_session_key()
+
+        for session_key, values in self._sessions.items():
+            if session_key == current_session_key:
+                creation_time, request = values
+                logout(request)
+                del self._sessions[session_key]
+
+    def get_current_session_key(self, session_token_limit=UNIQUE_SESSION_TOKEN_LIMIT_SECONDS):
+        """
+        Return the current session key, selected by his creation time
+        and his limit before destruction, we suppose that we always
+        have 2 items in sessions
+        """
+        sessions = self._sessions.items()[:2]
+
+        if sessions[0][1][0] > sessions[1][1][0]:
+            most_recent_session = sessions[0]
+            most_oldest_session = sessions[1]
+        else:
+            most_recent_session = sessions[1]
+            most_oldest_session = sessions[0]
+
+        delta_oldest = timezone.now() - most_oldest_session[1][0]
+        if session_token_limit and delta_oldest.seconds < session_token_limit:
+            return most_oldest_session[0]
+        return most_recent_session[0]
+
+
+class UniqueSessionMiddleware(object):
+
+    def __init__(self):
+        """
+        Amorcing the datas
+        """
+        self._user_sessions = {}
+
+    def process_request(self, request):
+        """
+        Attacking the view with the middleware
+        """
+        return self.check_sessions(request)
+
+    def check_sessions(self, request):
+        """
+        Check for unique sessions
+        """
+        if request.user.is_authenticated():
+            user_sessions = self.get_sessions(request.user.username)
+            user_sessions.register(request)
+
+            if user_sessions.opened > 1:
+                user_sessions.set_unique()
+        else:
+            return None
+
+    def get_sessions(self, key):
+        """
+        Return user sessions from his username as key
+        """
+        self._user_sessions.setdefault(key, SessionCollector())
+        return self._user_sessions.get(key)
+

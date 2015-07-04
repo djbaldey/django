@@ -6,6 +6,7 @@ from django.core.exceptions import PermissionDenied
 from django.shortcuts import resolve_url
 from django.utils.decorators import available_attrs
 from django.utils.six.moves.urllib.parse import urlparse
+from django.utils import timezone
 
 
 def user_passes_test(test_func, login_url=None, redirect_field_name=REDIRECT_FIELD_NAME):
@@ -36,13 +37,13 @@ def user_passes_test(test_func, login_url=None, redirect_field_name=REDIRECT_FIE
     return decorator
 
 
-def login_required(function=None, redirect_field_name=REDIRECT_FIELD_NAME, login_url=None):
+def login_required(function=None, redirect_field_name=REDIRECT_FIELD_NAME, login_url=None, check_active=True):
     """
     Decorator for views that checks that the user is logged in, redirecting
     to the log-in page if necessary.
     """
     actual_decorator = user_passes_test(
-        lambda u: u.is_authenticated(),
+        lambda u: u.is_authenticated() and (not check_active or (check_active and u.is_active)),
         login_url=login_url,
         redirect_field_name=redirect_field_name
     )
@@ -72,3 +73,29 @@ def permission_required(perm, login_url=None, raise_exception=False):
         # As the last resort, show the login form
         return False
     return user_passes_test(check_perms, login_url=login_url)
+
+
+def set_last_activity(function=None, save_user=True):
+    """
+    Decorator for views that need to save the last user activity.
+    """
+
+    def decorator(view_func):
+        @wraps(view_func, assigned=available_attrs(view_func))
+        def _wrapped_view(request, *args, **kwargs):
+            try:
+                user = request.user
+                if not user.is_anonymous():
+                    user.last_activity = timezone.now()
+                    if save_user:
+                        user.save(update_fields=['last_activity'])
+            except:
+                pass
+            return view_func(request, *args, **kwargs)
+
+        return _wrapped_view
+
+    if function:
+        return decorator(function)
+
+    return decorator

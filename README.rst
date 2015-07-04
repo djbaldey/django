@@ -1,3 +1,6 @@
+This is fork of Django
+======================
+
 Django is a high-level Python Web framework that encourages rapid development
 and clean, pragmatic design. Thanks for checking it out.
 
@@ -41,3 +44,26 @@ To run Django's test suite:
 * Follow the instructions in the "Unit tests" section of
   docs/internals/contributing/writing-code/unit-tests.txt, published online at
   https://docs.djangoproject.com/en/dev/internals/contributing/writing-code/unit-tests/#running-the-unit-tests
+
+
+What's changed in fork
+----------------------
+
+1. By default shall have the permissions of "CRUD": "add"(C), "view"(R),
+   "change"(U), "delete"(D).
+
+2. Integrated field "JSONField" with automatic installation type for
+   different DBMS. And "StrictJSONField" designed to work with PostgreSQL.
+
+3. In the model the user added fields: "last_activity" and "settings".
+   This solution allows to increase the speed in business applications,
+   where the user object is always present and there are a lot of things
+   tied.
+
+4. Added filters "has_perm" "has_module_perms" to check user rights directly
+   in the template (contrib.auth).
+
+5. And many more minor improvements, about which there is no need to write.
+
+
+
