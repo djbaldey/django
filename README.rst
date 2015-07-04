@@ -49,21 +49,40 @@ To run Django's test suite:
 What's changed in fork
 ----------------------
 
-1. By default shall have the permissions of "CRUD": "add"(C), "view"(R),
-   "change"(U), "delete"(D).
+Original framework is beautiful, it is convenient to make sites, but not
+business applications. Here we try to correct this deficiency. Many of
+these developments will never be accepted in the mainline, but we hope...
 
-2. Integrated field "JSONField" with automatic installation type for
-   different DBMS. And "StrictJSONField" designed to work with PostgreSQL.
+Incomplete list of changes:
 
-3. In the model the user added fields: "last_activity" and "settings".
+1. Inactive user should not have any permissions. In original now has.
+
+2. By default shall have the permissions of **"CRUD"**: "add"(C), "view"(R),
+   "change"(U), "delete"(D). And all permissions are created on the project
+   language specified in settings.LANGUAGE_CODE.
+
+3. Integrated field **"JSONField"** with automatic installation type for
+   different DBMS. And **"StrictJSONField"** designed to work with PostgreSQL.
+
+4. In the model the auth.User added fields: **"last_activity"** and **"settings"**.
    This solution allows to increase the speed in business applications,
    where the user object is always present and there are a lot of things
-   tied.
+   tied. Also, added decorator for views that need to save the last user activity.
 
-4. Added filters "has_perm" "has_module_perms" to check user rights directly
+5. Added filters **"has_perm"** & **"has_module_perms"** to check user rights directly
    in the template (contrib.auth).
 
-5. And many more minor improvements, about which there is no need to write.
+6. Added **"UniqueSessionMiddleware"** in contrib.auth.  Prohibited work under
+   one login from multiple devices simultaneously.
 
+7. Added a **collection of abstract models** that are in demand in our view.
+
+8. JSONEncoder can handle objects of the pending translate.
+
+9. Displays the username from request in the mail for admins.
+
+10. Added demand functions for working with time in **"utils.datetimes"**.
+
+11. Added function get_object_or_none by analogy with get_object_or_404.
 
 
