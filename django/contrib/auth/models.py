@@ -22,8 +22,8 @@ def update_last_login(sender, user, **kwargs):
     A signal receiver which updates the last_login date for
     the user logging in.
     """
-    user.last_login = user.last_activity = timezone.now()
-    user.save(update_fields=['last_login', 'last_activity'])
+    user.last_login = timezone.now()
+    user.save(update_fields=['last_login'])
 user_logged_in.connect(update_last_login)
 
 
@@ -35,10 +35,6 @@ class PermissionManager(models.Manager):
             codename=codename,
             content_type=ContentType.objects.db_manager(self.db).get_by_natural_key(app_label, model),
         )
-
-    def get_by_perm(self, perm):
-        app_label, codename = perm.split('.')
-        return self.get(codename=codename, content_type__app_label=app_label)
 
 
 @python_2_unicode_compatible
@@ -196,24 +192,11 @@ class UserManager(BaseUserManager):
         return self._create_user(username, email, password, True, True,
                                  **extra_fields)
 
-    def in_group(self, group_id, *args, **kwargs):
-        qs = self.get_queryset(*args, **kwargs)
-        qs = qs.extra(
-            select={
-                'in_group': """
-                   SELECT count(*) FROM auth_user_groups
-                    WHERE auth_user_groups.user_id = auth_user.id
-                      AND auth_user_groups.group_id = %s"""
-            },
-            select_params = [group_id],
-        )
-        return qs
 
 @python_2_unicode_compatible
 class AbstractBaseUser(models.Model):
     password = models.CharField(_('password'), max_length=128)
     last_login = models.DateTimeField(_('last login'), blank=True, null=True)
-    last_activity = models.DateTimeField(_('last activity'), blank=True, null=True)
 
     is_active = True
 
@@ -244,7 +227,7 @@ class AbstractBaseUser(models.Model):
         Always return True. This is a way to tell if the user has been
         authenticated in templates.
         """
-        return True
+        return self.is_active
 
     def set_password(self, raw_password):
         self.password = make_password(raw_password)
@@ -355,7 +338,7 @@ class PermissionsMixin(models.Model):
     def get_all_permissions(self, obj=None):
         return _user_get_all_permissions(self, obj)
 
-    def has_perm(self, perm, obj=None, check_active=True):
+    def has_perm(self, perm, obj=None):
         """
         Returns True if the user has the specified permission. This method
         queries all available auth backends, but returns immediately if any
@@ -364,37 +347,31 @@ class PermissionsMixin(models.Model):
         provided, permissions for this specific object are checked.
         """
 
-        if check_active and not self.is_active:
-            return False
-
-        # Superusers have all permissions.
-        if self.is_superuser:
+        # Active superusers have all permissions.
+        if self.is_active and self.is_superuser:
             return True
 
         # Otherwise we need to check the backends.
         return _user_has_perm(self, perm, obj)
 
-    def has_perms(self, perm_list, obj=None, check_active=True):
+    def has_perms(self, perm_list, obj=None):
         """
         Returns True if the user has each of the specified permissions. If
         object is passed, it checks if the user has all required perms for this
         object.
         """
         for perm in perm_list:
-            if not self.has_perm(perm, obj, check_active):
+            if not self.has_perm(perm, obj):
                 return False
         return True
 
-    def has_module_perms(self, app_label, check_active=True):
+    def has_module_perms(self, app_label):
         """
         Returns True if the user has any permissions in the given app label.
         Uses pretty much the same logic as has_perm, above.
         """
-        if check_active and not self.is_active:
-            return False
-
-        # Superusers have all permissions.
-        if self.is_superuser:
+        # Active superusers have all permissions.
+        if self.is_active and self.is_superuser:
             return True
 
         return _user_has_module_perms(self, app_label)
@@ -429,6 +406,7 @@ class AbstractUser(AbstractBaseUser, PermissionsMixin):
         help_text=_('Designates whether this user should be treated as '
                     'active. Unselect this instead of deleting accounts.'))
     date_joined = models.DateTimeField(_('date joined'), default=timezone.now)
+    last_activity = models.DateTimeField(_('last activity'), blank=True, null=True)
 
     settings = models.JSONField(_('settings'), null=True, blank=True, editable=False)
 
