@@ -1,10 +1,10 @@
-==========================
-Django 1.7.9 release notes
-==========================
+===========================
+Django 1.4.21 release notes
+===========================
 
 *July 8, 2015*
 
-Django 1.7.9 fixes several security issues and bugs in 1.7.8.
+Django 1.4.21 fixes several security issues in 1.4.20.
 
 Denial-of-service possibility by filling session store
 ======================================================
@@ -45,21 +45,10 @@ unexpected newlines.
 
 :func:`~django.core.validators.validate_ipv4_address`,
 :func:`~django.core.validators.validate_slug`, and
-:class:`~django.core.validators.URLValidator` are also affected, however, as
-of Django 1.6 the ``GenericIPAddresseField``, ``IPAddressField``, ``SlugField``,
-and ``URLField`` form fields which use these validators all strip the input, so
-the possibility of newlines entering your data only exists if you are using
-these validators outside of the form fields.
+:class:`~django.core.validators.URLValidator` and their usage in the
+corresponding form fields ``GenericIPAddresseField``, ``IPAddressField``,
+``SlugField``, and ``URLField`` are also affected.
 
 The undocumented, internally unused ``validate_integer()`` function is now
 stricter as it validates using a regular expression instead of simply casting
 the value using ``int()`` and checking if an exception was raised.
-
-Bugfixes
-========
-
-* Prevented the loss of ``null``/``not null`` column properties during field
-  renaming of MySQL databases (:ticket:`24817`).
-
-* Fixed ``SimpleTestCase.assertRaisesMessage()`` on Python 2.7.10
-  (:ticket:`24903`).
