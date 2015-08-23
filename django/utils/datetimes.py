@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 from __future__ import unicode_literals
 
+from django.conf import settings
 from django.utils import timezone
 from django.utils.dateparse import parse_datetime
 
@@ -168,6 +169,20 @@ def parse_datetime_to_local_aware(value):
         return local_datetime_aware(value)
     return None
 
+def parse_datetime_to_local_auto(value):
+    """
+    Парсер строкового значения (naive или aware) в локальное,
+    автоматически получая требуемый тип на выходе.
+    """
+    value = parse_datetime(value)
+    if value:
+        if settings.USE_TZ:
+            return local_datetime_aware(value)
+        else:
+            return local_datetime_naive(value)
+    return None
+
+
 def parse_datetime_to_server_naive(value):
     """
     Парсер строкового значения (naive или aware) в серверное naive.
@@ -185,4 +200,17 @@ def parse_datetime_to_server_aware(value):
     if value:
         return server_datetime_aware(value)
     return None
+
+def parse_datetime_to_server_auto(value):
+    """
+    Парсер строкового значения (naive или aware) в серверное время.
+    """
+    value = parse_datetime(value)
+    if value:
+        if settings.USE_TZ:
+            return server_datetime_aware(value)
+        else:
+            return server_datetime_naive(value)
+    return None
+
 

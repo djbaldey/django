@@ -1,5 +1,18 @@
 # -*- coding: utf-8 -*-
 
+def split_field(field):
+    if not isinstance(field, (list, tuple)):
+        return field.split('.')
+
+    F = []
+    for f in field:
+        if not isinstance(f, (list, tuple)):
+            f = f.split('.')
+        F.extend(f)
+
+    return F
+
+
 def to_dict(dictionary, field, value, append_to_list=False):
     """
     Рекурсивное обновление поля словаря. Ключ значения может выглядеть как:
@@ -7,7 +20,7 @@ def to_dict(dictionary, field, value, append_to_list=False):
     или
     'field1.field2.field3'
     или
-    ['field1', 'field2', ...]
+    ['field1', 'field2', 'field3.field4', ...]
 
     Заметьте, что (по умолчанию) списки поддерживаются только в
     качестве готовых значений! Если нужно добавить в список, то
@@ -22,8 +35,7 @@ def to_dict(dictionary, field, value, append_to_list=False):
     if not isinstance(D, dict):
         D = {}
 
-    if not isinstance(field, (list, tuple)):
-        field = field.split('.')
+    field = split_field(field)
 
     d = D
     length = len(field)
@@ -57,7 +69,7 @@ def from_dict(dictionary, field, default=None, update=True, delete=False):
     или
     'field1.field2.field3'
     или
-    ['field1', 'field2', ...]
+    ['field1', 'field2', 'field3.field4', ...]
     
     Устанавливает значение по-умолчанию, если ничего не найдено и
     разрешено обновление.
@@ -68,8 +80,7 @@ def from_dict(dictionary, field, default=None, update=True, delete=False):
     if not isinstance(D, dict):
         D = {}
 
-    if not isinstance(field, (list, tuple)):
-        field = field.split('.')
+    field = split_field(field)
 
     d = D
     value = default

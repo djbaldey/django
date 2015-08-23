@@ -2457,7 +2457,7 @@ class JSONEncoder(json.JSONEncoder):
                 return number_format(o, use_l10n=True, force_grouping=True)
             else:
                 return force_text(o)
-        elif isinstance(o, (Promise, Exception)):
+        elif isinstance(o, (Promise, Exception, uuid.UUID)):
             return force_text(o)
         else:
             return super(JSONEncoder, self).default(o)

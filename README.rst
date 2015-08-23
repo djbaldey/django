@@ -55,34 +55,33 @@ these developments will never be accepted in the mainline, but we hope...
 
 Incomplete list of changes:
 
-1. Inactive user should not have any permissions. In original now has.
 
-2. By default shall have the permissions of **"CRUD"**: "add"(C), "view"(R),
+1. By default shall have the permissions of **"CRUD"**: "add"(C), "view"(R),
    "change"(U), "delete"(D). And all permissions are created on the project
    language specified in settings.LANGUAGE_CODE.
 
-3. Integrated field **"JSONField"** with automatic installation type for
+2. Integrated field **"JSONField"** with automatic installation type for
    different DBMS. And **"StrictJSONField"** designed to work with PostgreSQL.
 
-4. In the model the auth.User added fields: **"last_activity"** and **"settings"**.
+3. In the model the auth.User added fields: **"last_activity"** and **"settings"**.
    This solution allows to increase the speed in business applications,
    where the user object is always present and there are a lot of things
    tied. Also, added decorator for views that need to save the last user activity.
 
-5. Added filters **"has_perm"** & **"has_module_perms"** to check user rights directly
+4. Added filters **"has_perm"** & **"has_module_perms"** to check user rights directly
    in the template (contrib.auth).
 
-6. Added **"UniqueSessionMiddleware"** in contrib.auth.  Prohibited work under
+5. Added **"UniqueSessionMiddleware"** in contrib.auth. Prohibited work under
    one login from multiple devices simultaneously.
 
-7. Added a **collection of abstract models** that are in demand in our view.
+6. Added a **collection of abstract models** that are in demand in our view.
 
-8. JSONEncoder can handle objects of the pending translate.
+7. JSONEncoder can handle objects of the pending translate.
 
-9. Displays the username from request in the mail for admins.
+8. Displays the username from request in the mail for admins.
 
-10. Added demand functions for working with time in **"utils.datetimes"**.
+9. Added demand functions for working with time in **"utils.datetimes"**.
 
-11. Added function get_object_or_none by analogy with get_object_or_404.
+10. Added function get_object_or_none by analogy with get_object_or_404.
 
 

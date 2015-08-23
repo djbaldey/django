@@ -1124,7 +1124,8 @@ a ``get_queryset_compat`` method as below and use it internally to your manager:
         def get_queryset(self):
             return YourCustomQuerySet() # for example
 
-        get_query_set = get_queryset
+        if django.VERSION < (1, 6):
+            get_query_set = get_queryset
 
         def active(self): # for example
             return self.get_queryset_compat().filter(active=True)
@@ -1168,7 +1169,7 @@ This can lead to security problems where fields are added to the model and,
 unintentionally, automatically become editable by end users. In some cases,
 particular with boolean fields, it is possible for this problem to be completely
 invisible. This is a form of `Mass assignment vulnerability
-<http://en.wikipedia.org/wiki/Mass_assignment_vulnerability>`_.
+<https://en.wikipedia.org/wiki/Mass_assignment_vulnerability>`_.
 
 For this reason, this behavior is deprecated, and using the ``Meta.exclude``
 option is strongly discouraged. Instead, all fields that are intended for

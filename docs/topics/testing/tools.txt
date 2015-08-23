@@ -798,7 +798,7 @@ least as many as the number of potential parallel processes). For example:
 Then, during test execution, each new live test server will try every specified
 port until it finds one that is free and takes it.
 
-.. _continuous integration: http://en.wikipedia.org/wiki/Continuous_integration
+.. _continuous integration: https://en.wikipedia.org/wiki/Continuous_integration
 
 To demonstrate how to use ``LiveServerTestCase``, let's write a simple Selenium
 test. First of all, you need to install the `selenium package`_ into your
@@ -1337,7 +1337,7 @@ your test suite.
             SimpleTestCase.assertRaisesMessage(expected_exception, expected_message)
 
     Asserts that execution of ``callable`` raises ``expected_exception`` and
-    that the exception has an ``expected_message`` representation. Any other
+    that ``expected_message`` is found in the exception's message. Any other
     outcome is reported as a failure. Similar to unittest's
     :meth:`~unittest.TestCase.assertRaisesRegex` with the difference that
     ``expected_message`` isn't a regular expression.

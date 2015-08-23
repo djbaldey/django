@@ -26,6 +26,8 @@ if HAS_GEOS:
 @skipUnless(HAS_GEOIP and getattr(settings, "GEOIP_PATH", None),
     "GeoIP is required along with the GEOIP_PATH setting.")
 class GeoIPTest(unittest.TestCase):
+    addr = '128.249.1.1'
+    fqdn = 'tmc.edu'
 
     def test01_init(self):
         "Testing GeoIP initialization."
@@ -71,10 +73,7 @@ class GeoIPTest(unittest.TestCase):
         "Testing GeoIP country querying methods."
         g = GeoIP(city='<foo>')
 
-        fqdn = 'www.google.com'
-        addr = '12.215.42.19'
-
-        for query in (fqdn, addr):
+        for query in (self.fqdn, self.addr):
             for func in (g.country_code, g.country_code_by_addr, g.country_code_by_name):
                 self.assertEqual('US', func(query))
             for func in (g.country_name, g.country_name_by_addr, g.country_name_by_name):
@@ -87,9 +86,7 @@ class GeoIPTest(unittest.TestCase):
         "Testing GeoIP city querying methods."
         g = GeoIP(country='<foo>')
 
-        addr = '128.249.1.1'
-        fqdn = 'tmc.edu'
-        for query in (fqdn, addr):
+        for query in (self.fqdn, self.addr):
             # Country queries should still work.
             for func in (g.country_code, g.country_code_by_addr, g.country_code_by_name):
                 self.assertEqual('US', func(query))
@@ -116,7 +113,8 @@ class GeoIPTest(unittest.TestCase):
     def test05_unicode_response(self):
         "Testing that GeoIP strings are properly encoded, see #16553."
         g = GeoIP()
-        d = g.city("www.osnabrueck.de")
-        self.assertEqual('Osnabrück', d['city'])
-        d = g.country('200.7.49.81')
-        self.assertEqual('Curaçao', d['country_name'])
+        d = g.city("duesseldorf.de")
+        self.assertEqual('Düsseldorf', d['city'])
+        d = g.country('200.26.205.1')
+        # Some databases have only unaccented countries
+        self.assertIn(d['country_name'], ('Curaçao', 'Curacao'))
