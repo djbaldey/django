@@ -152,7 +152,7 @@ The ``preserve_default`` argument indicates whether the field's default
 value is permanent and should be baked into the project state (``True``),
 or if it is temporary and just for this migration (``False``) - usually
 because the migration is adding a non-nullable field to a table and needs
-a default value to put into existing rows. It does not effect the behavior
+a default value to put into existing rows. It does not affect the behavior
 of setting defaults in the database directly - Django never sets database
 defaults and always applies them in the Django ORM code.
 
@@ -180,7 +180,7 @@ The ``preserve_default`` argument indicates whether the field's default
 value is permanent and should be baked into the project state (``True``),
 or if it is temporary and just for this migration (``False``) - usually
 because the migration is altering a nullable field to a non-nullable one and
-needs a default value to put into existing rows. It does not effect the
+needs a default value to put into existing rows. It does not affect the
 behavior of setting defaults in the database directly - Django never sets
 database defaults and always applies them in the Django ORM code.
 
@@ -222,11 +222,19 @@ queries and parameters in the same way as :ref:`cursor.execute()
 <executing-custom-sql>`. These three operations are equivalent::
 
     migrations.RunSQL("INSERT INTO musician (name) VALUES ('Reinhardt');")
-    migrations.RunSQL(["INSERT INTO musician (name) VALUES ('Reinhardt');", None])
-    migrations.RunSQL(["INSERT INTO musician (name) VALUES (%s);", ['Reinhardt']])
+    migrations.RunSQL([("INSERT INTO musician (name) VALUES ('Reinhardt');", None)])
+    migrations.RunSQL([("INSERT INTO musician (name) VALUES (%s);", ['Reinhardt'])])
 
 If you want to include literal percent signs in the query, you have to double
 them if you are passing parameters.
+
+The ``reverse_sql`` queries are executed when the migration is unapplied, so
+you can reverse the changes done in the forwards queries::
+
+    migrations.RunSQL(
+        [("INSERT INTO musician (name) VALUES (%s);", ['Reinhardt'])],
+        [("DELETE FROM musician where name=%s;", ['Reinhardt'])],
+    )
 
 The ``state_operations`` argument is so you can supply operations that are
 equivalent to the SQL in terms of project state; for example, if you are
@@ -274,6 +282,10 @@ match the operation's place in the project history, and the second is an
 instance of :class:`SchemaEditor
 <django.db.backends.base.schema.BaseDatabaseSchemaEditor>`.
 
+The ``reverse_code`` argument is called when unapplying migrations. This
+callable should undo what is done in the ``code`` callable so that the
+migration is reversible.
+
 The optional ``hints`` argument will be passed as ``**hints`` to the
 :meth:`allow_migrate` method of database routers to assist them in making a
 routing decision. See :ref:`topics-db-multi-db-hints` for more details on
@@ -301,14 +313,20 @@ model::
             Country(name="France", code="fr"),
         ])
 
+    def reverse_func(apps, schema_editor):
+        # forwards_func() creates two Country instances,
+        # so reverse_func() should delete them.
+        Country = apps.get_model("myapp", "Country")
+        db_alias = schema_editor.connection.alias
+        Country.objects.using(db_alias).filter(name="USA", code="us").delete()
+        Country.objects.using(db_alias).filter(name="France", code="fr").delete()
+
     class Migration(migrations.Migration):
 
         dependencies = []
 
         operations = [
-            migrations.RunPython(
-                forwards_func,
-            ),
+            migrations.RunPython(forwards_func, reverse_func),
         ]
 
 This is generally the operation you would use to create

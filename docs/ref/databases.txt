@@ -253,7 +253,7 @@ In addition to a DB API driver, Django needs an adapter to access the database
 drivers from its ORM. Django provides an adapter for MySQLdb/mysqlclient while
 MySQL Connector/Python includes `its own`_.
 
-.. _its own: http://dev.mysql.com/doc/refman/5.6/en/connector-python-info.html
+.. _its own: http://dev.mysql.com/doc/connector-python/en/connector-python-django-backend.html
 
 MySQLdb
 ~~~~~~~
@@ -500,6 +500,14 @@ for the field. This affects :class:`~django.db.models.CharField`,
 :class:`~django.db.models.SlugField` and
 :class:`~django.db.models.CommaSeparatedIntegerField`.
 
+``TextField`` limitations
+~~~~~~~~~~~~~~~~~~~~~~~~~
+
+MySQL can index only the first N chars of a ``BLOB`` or ``TEXT`` column. Since
+``TextField`` doesn't have a defined length, you can't mark it as
+``unique=True``. MySQL will report: "BLOB/TEXT column '<db_column>' used in key
+specification without a key length".
+
 .. _mysql-fractional-seconds:
 
 Fractional seconds support for Time and DateTime fields
@@ -614,7 +622,7 @@ SQLite 3.6.23.1 was released in March 2010, and most current binary
 distributions for different platforms include a newer version of SQLite, with
 the notable exception of the Python 2.7 installers for Windows.
 
-As of this writing, the latest release for Windows - Python 2.7.9 - includes
+As of this writing, the latest release for Windows - Python 2.7.10 - includes
 SQLite 3.6.21. You can install ``pysqlite2`` or replace ``sqlite3.dll`` (by
 default installed in ``C:\Python27\DLLs``) with a newer version from
 http://www.sqlite.org/ to remedy this issue.
@@ -754,13 +762,15 @@ for Django's own test suite.
 All of these privileges are included in the DBA role, which is appropriate
 for use on a private developer's database.
 
-The Oracle database backend uses the ``SYS.DBMS_LOB`` package, so your user
-will require execute permissions on it. It's normally accessible to all users
-by default, but in case it is not, you'll need to grant permissions like so:
+The Oracle database backend uses the ``SYS.DBMS_LOB`` and ``SYS.DBMS_RANDOM``
+packages, so your user will require execute permissions on it. It's normally
+accessible to all users by default, but in case it is not, you'll need to grant
+permissions like so:
 
 .. code-block:: sql
 
     GRANT EXECUTE ON SYS.DBMS_LOB TO user;
+    GRANT EXECUTE ON SYS.DBMS_RANDOM TO user;
 
 Connecting to the database
 --------------------------
@@ -884,10 +894,10 @@ some limitations on the usage of such LOB columns in general:
 
 * LOB columns may not be used in a ``SELECT DISTINCT`` list. This means that
   attempting to use the ``QuerySet.distinct`` method on a model that
-  includes ``TextField`` columns will result in an error when run against
-  Oracle. As a workaround, use the ``QuerySet.defer`` method in conjunction
-  with ``distinct()`` to prevent ``TextField`` columns from being included in
-  the ``SELECT DISTINCT`` list.
+  includes ``TextField`` columns will result in an ``ORA-00932`` error when
+  run against Oracle. As a workaround, use the ``QuerySet.defer`` method in
+  conjunction with ``distinct()`` to prevent ``TextField`` columns from being
+  included in the ``SELECT DISTINCT`` list.
 
 .. _third-party-notes:
 
@@ -902,7 +912,6 @@ by 3rd parties that allow you to use other databases with Django:
 * `Microsoft SQL Server`_
 * Firebird_
 * ODBC_
-* ADSDB_
 
 The Django versions and ORM features supported by these unofficial backends
 vary considerably. Queries regarding the specific capabilities of these
@@ -910,8 +919,7 @@ unofficial backends, along with any support queries, should be directed to
 the support channels provided by each 3rd party project.
 
 .. _SAP SQL Anywhere: https://github.com/sqlanywhere/sqlany-django
-.. _IBM DB2: http://code.google.com/p/ibm-db/
+.. _IBM DB2: https://pypi.python.org/pypi/ibm_db/
 .. _Microsoft SQL Server: http://django-mssql.readthedocs.org/en/latest/
 .. _Firebird: https://github.com/maxirobaina/django-firebird
 .. _ODBC: https://github.com/lionheart/django-pyodbc/
-.. _ADSDB: http://code.google.com/p/adsdb-django/

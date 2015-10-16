@@ -3979,8 +3979,11 @@ class SeleniumAdminViewsFirefoxTests(AdminSeleniumWebDriverTestCase):
         self.admin_login(username='super', password='secret', login_url=reverse('admin:index'))
         self.selenium.get(full_url)
         self.selenium.find_element_by_class_name('deletelink').click()
+        # Wait until we're on the delete page.
+        self.wait_for('.cancel-link')
         self.selenium.find_element_by_class_name('cancel-link').click()
-        self.wait_page_loaded()
+        # Wait until we're back on the change page.
+        self.wait_for_text('#content h1', 'Change pizza')
         self.assertEqual(self.selenium.current_url, full_url)
         self.assertEqual(Pizza.objects.count(), 1)
 
@@ -3998,8 +4001,11 @@ class SeleniumAdminViewsFirefoxTests(AdminSeleniumWebDriverTestCase):
         self.admin_login(username='super', password='secret', login_url=reverse('admin:index'))
         self.selenium.get(full_url)
         self.selenium.find_element_by_class_name('deletelink').click()
+        # Wait until we're on the delete page.
+        self.wait_for('.cancel-link')
         self.selenium.find_element_by_class_name('cancel-link').click()
-        self.wait_page_loaded()
+        # Wait until we're back on the change page.
+        self.wait_for_text('#content h1', 'Change pizza')
         self.assertEqual(self.selenium.current_url, full_url)
         self.assertEqual(Pizza.objects.count(), 1)
         self.assertEqual(Topping.objects.count(), 2)
@@ -4229,6 +4235,16 @@ class RawIdFieldsTest(TestCase):
         response2 = self.client.get(popup_url)
         self.assertNotContains(response2, "Kilbraken")
         self.assertContains(response2, "Palin")
+
+    def test_list_display_method_same_name_as_reverse_accessor(self):
+        """
+        Should be able to use a ModelAdmin method in list_display that has the
+        same name as a reverse model field ("sketch" in this case).
+        """
+        actor = Actor.objects.create(name="Palin", age=27)
+        Inquisition.objects.create(expected=True, leader=actor, country="England")
+        response = self.client.get(reverse('admin:admin_views_inquisition_changelist'))
+        self.assertContains(response, 'list-display-sketch')
 
 
 @override_settings(PASSWORD_HASHERS=('django.contrib.auth.hashers.SHA1PasswordHasher',),
