@@ -74,9 +74,6 @@ class TranslationTests(TestCase):
             self.assertEqual(get_language(), 'de')
             with translation.override(None):
                 self.assertEqual(get_language(), None)
-                with translation.override('pl'):
-                    pass
-                self.assertEqual(get_language(), None)
             self.assertEqual(get_language(), 'de')
         finally:
             deactivate()

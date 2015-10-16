@@ -88,9 +88,10 @@ class DatabaseIntrospection(BaseDatabaseIntrospection):
 
     def get_relations(self, cursor, table_name):
         """
-        Return a dictionary of {field_name: (field_name_other_table, other_table)}
-        representing all relationships to the given table.
+        Returns a dictionary of {field_index: (field_index_other_table, other_table)}
+        representing all relationships to the given table. Indexes are 0-based.
         """
+
         # Dictionary of relations to return
         relations = {}
 

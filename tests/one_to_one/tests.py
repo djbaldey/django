@@ -5,8 +5,7 @@ from django.test import TestCase
 
 from .models import (
     Bar, Director, Favorites, HiddenPointer, ManualPrimaryKey, MultiModel,
-    Place, Pointer, RelatedModel, Restaurant, School, Target, UndergroundBar,
-    Waiter,
+    Place, RelatedModel, Restaurant, School, Target, UndergroundBar, Waiter,
 )
 
 
@@ -257,11 +256,6 @@ class OneToOneTests(TestCase):
             []
         )
 
-    def test_o2o_primary_key_delete(self):
-        t = Target.objects.create(name='name')
-        Pointer.objects.create(other=t)
-        Pointer.objects.filter(other__name='name').delete()
-
     def test_reverse_object_does_not_exist_cache(self):
         """
         Regression for #13839 and #17439.
@@ -371,15 +365,13 @@ class OneToOneTests(TestCase):
         """
         p = Place()
         b = UndergroundBar.objects.create()
-
-        # Assigning a reverse relation on an unsaved object is allowed.
-        p.undergroundbar = b
-
-        # However saving the object is not allowed.
-        msg = "save() prohibited to prevent data loss due to unsaved related object 'place'."
+        msg = (
+            'Cannot assign "<UndergroundBar: UndergroundBar object>": "Place" '
+            'instance isn\'t saved in the database.'
+        )
         with self.assertNumQueries(0):
             with self.assertRaisesMessage(ValueError, msg):
-                b.save()
+                p.undergroundbar = b
 
     def test_nullable_o2o_delete(self):
         u = UndergroundBar.objects.create(place=self.p1)

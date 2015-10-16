@@ -63,25 +63,25 @@ class TestDebugSQL(unittest.TestCase):
 
     if six.PY3:
         expected_outputs = [
-            ('''QUERY = 'SELECT COUNT(*) AS "__count" '''
+            ('''QUERY = 'SELECT COUNT(%s) AS "__count" '''
                 '''FROM "test_runner_person" WHERE '''
                 '''"test_runner_person"."first_name" = %s' '''
-                '''- PARAMS = ('error',);'''),
-            ('''QUERY = 'SELECT COUNT(*) AS "__count" '''
+                '''- PARAMS = ('*', 'error');'''),
+            ('''QUERY = 'SELECT COUNT(%s) AS "__count" '''
                 '''FROM "test_runner_person" WHERE '''
                 '''"test_runner_person"."first_name" = %s' '''
-                '''- PARAMS = ('fail',);'''),
+                '''- PARAMS = ('*', 'fail');'''),
         ]
     else:
         expected_outputs = [
-            ('''QUERY = u'SELECT COUNT(*) AS "__count" '''
+            ('''QUERY = u'SELECT COUNT(%s) AS "__count" '''
                 '''FROM "test_runner_person" WHERE '''
                 '''"test_runner_person"."first_name" = %s' '''
-                '''- PARAMS = (u'error',);'''),
-            ('''QUERY = u'SELECT COUNT(*) AS "__count" '''
+                '''- PARAMS = (u'*', u'error');'''),
+            ('''QUERY = u'SELECT COUNT(%s) AS "__count" '''
                 '''FROM "test_runner_person" WHERE '''
                 '''"test_runner_person"."first_name" = %s' '''
-                '''- PARAMS = (u'fail',);'''),
+                '''- PARAMS = (u'*', u'fail');'''),
         ]
 
     verbose_expected_outputs = [
@@ -94,15 +94,15 @@ class TestDebugSQL(unittest.TestCase):
     ]
     if six.PY3:
         verbose_expected_outputs += [
-            ('''QUERY = 'SELECT COUNT(*) AS "__count" '''
+            ('''QUERY = 'SELECT COUNT(%s) AS "__count" '''
                 '''FROM "test_runner_person" WHERE '''
                 '''"test_runner_person"."first_name" = %s' '''
-                '''- PARAMS = ('pass',);'''),
+                '''- PARAMS = ('*', 'pass');'''),
         ]
     else:
         verbose_expected_outputs += [
-            ('''QUERY = u'SELECT COUNT(*) AS "__count" '''
+            ('''QUERY = u'SELECT COUNT(%s) AS "__count" '''
                 '''FROM "test_runner_person" WHERE '''
                 '''"test_runner_person"."first_name" = %s' '''
-                '''- PARAMS = (u'pass',);'''),
+                '''- PARAMS = (u'*', u'pass');'''),
         ]

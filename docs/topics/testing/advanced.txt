@@ -97,9 +97,7 @@ configuration::
             'ENGINE': 'django.db.backends.mysql',
             'NAME': 'myproject',
             'HOST': 'dbreplica',
-            'TEST': {
-                'MIRROR': 'default',
-            },
+            'TEST_MIRROR': 'default'
             # ... plus some other settings
         }
     }
@@ -113,8 +111,8 @@ normal activity, any write to ``default`` will appear on ``replica``.
 If Django created two independent test databases, this would break any
 tests that expected replication to occur. However, the ``replica``
 database has been configured as a test mirror (using the
-:setting:`MIRROR <TEST_MIRROR>` test setting), indicating that under
-testing, ``replica`` should be treated as a mirror of ``default``.
+:setting:`TEST_MIRROR` setting), indicating that under testing,
+``replica`` should be treated as a mirror of ``default``.
 
 When the test environment is configured, a test version of ``replica``
 will *not* be created. Instead the connection to ``replica``
@@ -134,51 +132,41 @@ However, no guarantees are made on the creation order of any other
 databases in your test setup.
 
 If your database configuration requires a specific creation order, you
-can specify the dependencies that exist using the :setting:`DEPENDENCIES
-<TEST_DEPENDENCIES>` test setting. Consider the following (simplified)
-example database configuration::
+can specify the dependencies that exist using the
+:setting:`TEST_DEPENDENCIES` setting. Consider the following
+(simplified) example database configuration::
 
     DATABASES = {
         'default': {
-            # ... db settings
-            'TEST': {
-                'DEPENDENCIES': ['diamonds'],
-            },
+             # ... db settings
+             'TEST_DEPENDENCIES': ['diamonds']
         },
         'diamonds': {
-             ... db settings
-            'TEST': {
-                'DEPENDENCIES': [],
-            },
+            # ... db settings
+             'TEST_DEPENDENCIES': []
         },
         'clubs': {
             # ... db settings
-            'TEST': {
-                'DEPENDENCIES': ['diamonds'],
-            },
+            'TEST_DEPENDENCIES': ['diamonds']
         },
         'spades': {
             # ... db settings
-            'TEST': {
-                'DEPENDENCIES': ['diamonds', 'hearts'],
-            },
+            'TEST_DEPENDENCIES': ['diamonds','hearts']
         },
         'hearts': {
             # ... db settings
-            'TEST': {
-                'DEPENDENCIES': ['diamonds', 'clubs'],
-            },
+            'TEST_DEPENDENCIES': ['diamonds','clubs']
         }
     }
 
 Under this configuration, the ``diamonds`` database will be created first,
 as it is the only database alias without dependencies. The ``default`` and
 ``clubs`` alias will be created next (although the order of creation of this
-pair is not guaranteed), then ``hearts``, and finally ``spades``.
+pair is not guaranteed); then ``hearts``; and finally ``spades``.
 
-If there are any circular dependencies in the :setting:`DEPENDENCIES
-<TEST_DEPENDENCIES>` definition, an
-:exc:`~django.core.exceptions.ImproperlyConfigured` exception will be raised.
+If there are any circular dependencies in the
+:setting:`TEST_DEPENDENCIES` definition, an ``ImproperlyConfigured``
+exception will be raised.
 
 Advanced features of ``TransactionTestCase``
 ============================================
@@ -248,7 +236,6 @@ Advanced features of ``TransactionTestCase``
     Using ``reset_sequences = True`` will slow down the test, since the primary
     key reset is an relatively expensive database operation.
 
-.. _testing-reusable-applications:
 
 Using the Django test runner to test reusable applications
 ==========================================================

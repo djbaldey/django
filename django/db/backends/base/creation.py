@@ -427,7 +427,7 @@ class BaseDatabaseCreation(object):
         Internal implementation - returns the name of the test DB that will be
         created. Only useful when called from create_test_db() and
         _create_test_db() and when no external munging is done with the 'NAME'
-        settings.
+        or 'TEST_NAME' settings.
         """
         if self.connection.settings_dict['TEST']['NAME']:
             return self.connection.settings_dict['TEST']['NAME']

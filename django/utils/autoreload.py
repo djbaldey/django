@@ -40,8 +40,6 @@ import traceback
 from django.apps import apps
 from django.conf import settings
 from django.core.signals import request_finished
-from django.utils import six
-from django.utils._os import npath
 from django.utils.six.moves import _thread as thread
 
 # This import does nothing, but it's necessary to avoid some race conditions
@@ -76,7 +74,6 @@ I18N_MODIFIED = 2
 _mtimes = {}
 _win = (sys.platform == "win32")
 
-_exception = None
 _error_files = []
 _cached_modules = set()
 _cached_filenames = []
@@ -98,7 +95,7 @@ def gen_filenames(only_new=False):
         if only_new:
             return []
         else:
-            return _cached_filenames + clean_files(_error_files)
+            return _cached_filenames
 
     new_modules = module_values - _cached_modules
     new_filenames = clean_files(
@@ -112,7 +109,7 @@ def gen_filenames(only_new=False):
                                  'conf', 'locale'),
                     'locale']
         for app_config in reversed(list(apps.get_app_configs())):
-            basedirs.append(os.path.join(npath(app_config.path), 'locale'))
+            basedirs.append(os.path.join(app_config.path, 'locale'))
         basedirs.extend(settings.LOCALE_PATHS)
         basedirs = [os.path.abspath(basedir) for basedir in basedirs
                     if os.path.isdir(basedir)]
@@ -125,7 +122,7 @@ def gen_filenames(only_new=False):
     _cached_modules = _cached_modules.union(new_modules)
     _cached_filenames += new_filenames
     if only_new:
-        return new_filenames + clean_files(_error_files)
+        return new_filenames
     else:
         return _cached_filenames + clean_files(_error_files)
 
@@ -224,13 +221,11 @@ def code_changed():
 
 def check_errors(fn):
     def wrapper(*args, **kwargs):
-        global _exception
         try:
             fn(*args, **kwargs)
-        except Exception:
-            _exception = sys.exc_info()
-
-            et, ev, tb = _exception
+        except (ImportError, IndentationError, NameError, SyntaxError,
+                TypeError, AttributeError):
+            et, ev, tb = sys.exc_info()
 
             if getattr(ev, 'filename', None) is None:
                 # get the filename from the last item in the stack
@@ -244,12 +239,6 @@ def check_errors(fn):
             raise
 
     return wrapper
-
-
-def raise_last_exception():
-    global _exception
-    if _exception is not None:
-        six.reraise(*_exception)
 
 
 def ensure_echo_on():

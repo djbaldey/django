@@ -1,6 +1,6 @@
-====================================================
-Managing static files (e.g. images, JavaScript, CSS)
-====================================================
+===================================
+Managing static files (CSS, images)
+===================================
 
 Websites generally need to serve additional files such as images, JavaScript,
 or CSS. In Django, we refer to these files as "static files".  Django provides

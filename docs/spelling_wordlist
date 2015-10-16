@@ -510,7 +510,6 @@ Quickstart
 quoteless
 Radziej
 rc
-readded
 reallowed
 rebase
 rebased
@@ -630,9 +629,6 @@ subselect
 substr
 subtemplate
 subtemplates
-subtransactions
-subtree
-subtype
 subviews
 subwidgets
 symlink
@@ -696,7 +692,6 @@ unescaped
 ungrouped
 unhandled
 unharmful
-unhashable
 unicode
 uninstall
 uninstalling

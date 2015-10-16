@@ -14,7 +14,7 @@ class Migration(migrations.Migration):
     operations = [
         migrations.AlterModelOptions(
             name='user',
-            options={'verbose_name': 'user', 'verbose_name_plural': 'users', 'permissions': (('create_user_password', 'Can create user with password'), ('update_user_password', 'Can update users password'), ('create_user_active', 'Can create active user'), ('update_user_active', 'Can update activity user'), ('create_user_superuser', 'Can create user as superuser'), ('update_user_superuser', 'Can update user as superuser'), ('create_user_staff', 'Can create user as staff'), ('update_user_staff', 'Can update user as staff'), ('update_user_groups', 'Can update user groups'), ('update_user_perms', 'Can update user permissions'))},
+            options={'verbose_name': 'user', 'verbose_name_plural': 'users', 'permissions': (('add_superuser', 'Can add superuser'), ('change_superuser', 'Can change superuser'), ('delete_superuser', 'Can delete superuser'), ('add_staff', 'Can add staff'), ('change_staff', 'Can change staff'), ('delete_staff', 'Can delete staff'), ('add_active_user', 'Can add active user'), ('add_user_with_password', 'Can add user with password'), ('change_user_password', 'Can change the user password'), ('change_user_activity', 'Can change the user activity'), ('change_user_groups', 'Can change user groups'), ('change_user_perms', 'Can change user permissions'))},
         ),
         migrations.AddField(
             model_name='user',
@@ -24,7 +24,7 @@ class Migration(migrations.Migration):
         migrations.AddField(
             model_name='user',
             name='settings',
-            field=models.JSONField(null=True, verbose_name='settings', blank=True),
+            field=models.JSONField(verbose_name='settings', null=True, editable=False, blank=True),
         ),
         migrations.AlterField(
             model_name='permission',
