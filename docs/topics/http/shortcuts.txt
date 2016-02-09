@@ -109,13 +109,13 @@ MIME type :mimetype:`application/xhtml+xml`::
 This example is equivalent to::
 
     from django.http import HttpResponse
-    from django.template import RequestContext, loader
+    from django.template import loader
 
     def my_view(request):
         # View code here...
         t = loader.get_template('myapp/index.html')
-        c = RequestContext(request, {'foo': 'bar'})
-        return HttpResponse(t.render(c),
+        c = {'foo': 'bar'}
+        return HttpResponse(t.render(c, request),
             content_type="application/xhtml+xml")
 
 ``render_to_response``
@@ -162,7 +162,8 @@ Optional arguments
 
     .. deprecated:: 1.8
 
-       The ``context_instance`` argument is deprecated. Simply use ``context``.
+       The ``context_instance`` argument is deprecated. Use the :func:`render`
+       function instead which always makes ``RequestContext`` available.
 
 ``content_type``
     The MIME type to use for the resulting document. Defaults to the value of

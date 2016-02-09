@@ -513,7 +513,7 @@ redirects to the login page::
             return redirect('/login/?next=%s' % request.path)
         # ...
 
-.. function:: user_passes_test(func, login_url=None, redirect_field_name='next')
+.. function:: user_passes_test(test_func, login_url=None, redirect_field_name='next')
 
     As a shortcut, you can use the convenient ``user_passes_test`` decorator
     which performs a redirect when the callable returns ``False``::
@@ -591,6 +591,17 @@ The permission_required decorator
     :exc:`~django.core.exceptions.PermissionDenied`, prompting :ref:`the 403
     (HTTP Forbidden) view<http_forbidden_view>` instead of redirecting to the
     login page.
+
+    If you want to use ``raise_exception`` but also give your users a chance to
+    login first, you can add the
+    :func:`~django.contrib.auth.decorators.login_required` decorator::
+
+        from django.contrib.auth.decorators import login_required, permission_required
+
+        @permission_required('polls.can_vote', raise_exception=True)
+        @login_required
+        def my_view(request):
+            ...
 
     .. versionchanged:: 1.7
 
@@ -766,7 +777,7 @@ All authentication views
 This is a list with all the views ``django.contrib.auth`` provides. For
 implementation details see :ref:`using-the-views`.
 
-.. function:: login(request, template_name=`registration/login.html`, redirect_field_name=, authentication_form, current_app, extra_context])
+.. function:: login(request, template_name=`registration/login.html`, redirect_field_name=, authentication_form, current_app, extra_context)
 
     **URL name:** ``login``
 

@@ -670,6 +670,22 @@ subclass::
 
           colored_first_name.admin_order_field = '-first_name'
 
+      ``admin_order_field`` supports query lookups to sort by values on related
+      models. This example includes an "author first name" column in the list
+      display and allows sorting it by first name::
+
+          class Blog(models.Model):
+              title = models.CharField(max_length=255)
+              author = models.ForeignKey(Person, on_delete=models.CASCADE)
+
+          class BlogAdmin(admin.ModelAdmin):
+              list_display = ('title', 'author', 'author_first_name')
+
+              def author_first_name(self, obj):
+                  return obj.author.first_name
+
+              author_first_name.admin_order_field = 'author__first_name'
+
     * Elements of ``list_display`` can also be properties. Please note however,
       that due to the way properties work in Python, setting
       ``short_description`` on a property is only possible when using the
@@ -1664,7 +1680,7 @@ templates used by the :class:`ModelAdmin` views:
     changelist page if :attr:`~ModelAdmin.list_editable` is used. To use a
     custom formset, for example::
 
-        from django.forms.models import BaseModelFormSet
+        from django.forms import BaseModelFormSet
 
         class MyAdminFormSet(BaseModelFormSet):
             pass
@@ -2713,6 +2729,65 @@ The presence of the ``admin_password_reset`` named URL will cause a "forgotten
 your password?" link to appear on the default admin log-in page under the
 password box.
 
+``LogEntry`` objects
+====================
+
+.. class:: models.LogEntry
+
+    The ``LogEntry`` class tracks additions, changes, and deletions of objects
+    done through the admin interface.
+
+.. currentmodule:: django.contrib.admin.models
+
+``LogEntry`` attributes
+-----------------------
+
+.. attribute:: LogEntry.action_time
+
+    The date and time of the action.
+
+.. attribute:: LogEntry.user
+
+    The user (an :setting:`AUTH_USER_MODEL` instance) who performed the
+    action.
+
+.. attribute:: LogEntry.content_type
+
+    The :class:`~django.contrib.contenttypes.models.ContentType` of the
+    modified object.
+
+.. attribute:: LogEntry.object_id
+
+    The textual representation of the modified object's primary key.
+
+.. attribute:: LogEntry.object_repr
+
+    The object`s ``repr()`` after the modification.
+
+.. attribute:: LogEntry.action_flag
+
+    The type of action logged: ``ADDITION``, ``CHANGE``, ``DELETION``.
+
+    For example, to get a list of all additions done through the admin::
+
+        from django.contrib.admin.models import LogEntry, ADDITION
+
+        LogEntry.objects.filter(action_flag=ADDITION)
+
+.. attribute:: LogEntry.change_message
+
+    The detailed description of the modification. In the case of an edit, for
+    example, the message contains a list of the edited fields.
+
+``LogEntry`` methods
+--------------------
+
+.. method:: LogEntry.get_edited_object()
+
+    A shortcut that returns the referenced object.
+
+.. currentmodule:: django.contrib.admin
+
 .. _admin-reverse-urls:
 
 Reversing admin URLs
@@ -2745,6 +2820,14 @@ Add                     ``{{ app_label }}_{{ model_name }}_add``
 History                 ``{{ app_label }}_{{ model_name }}_history``      ``object_id``
 Delete                  ``{{ app_label }}_{{ model_name }}_delete``       ``object_id``
 Change                  ``{{ app_label }}_{{ model_name }}_change``       ``object_id``
+======================  ===============================================   =============
+
+The ``UserAdmin`` provides a named URL:
+
+======================  ===============================================   =============
+Page                    URL name                                          Parameters
+======================  ===============================================   =============
+Password change         ``auth_user_password_change``                     ``user_id``
 ======================  ===============================================   =============
 
 These named URLs are registered with the application namespace ``admin``, and

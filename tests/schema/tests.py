@@ -58,33 +58,25 @@ class SchemaTests(TransactionTestCase):
             model._meta._expire_cache()
         if 'schema' in new_apps.all_models:
             for model in self.local_models:
+                for many_to_many in model._meta.many_to_many:
+                    through = many_to_many.rel.through
+                    if through and through._meta.auto_created:
+                        del new_apps.all_models['schema'][through._meta.model_name]
                 del new_apps.all_models['schema'][model._meta.model_name]
 
     def delete_tables(self):
         "Deletes all model tables for our models for a clean test environment"
         converter = connection.introspection.table_name_converter
-        with connection.cursor() as cursor:
+        with atomic():
             connection.disable_constraint_checking()
-            table_names = connection.introspection.table_names(cursor)
+            table_names = connection.introspection.table_names()
             for model in itertools.chain(SchemaTests.models, self.local_models):
-                # Remove any M2M tables first
-                for field in model._meta.local_many_to_many:
-                    with atomic():
-                        tbl = converter(field.rel.through._meta.db_table)
-                        if tbl in table_names:
-                            cursor.execute(connection.schema_editor().sql_delete_table % {
-                                "table": connection.ops.quote_name(tbl),
-                            })
-                            table_names.remove(tbl)
-                # Then remove the main tables
-                with atomic():
-                    tbl = converter(model._meta.db_table)
-                    if tbl in table_names:
-                        cursor.execute(connection.schema_editor().sql_delete_table % {
-                            "table": connection.ops.quote_name(tbl),
-                        })
-                        table_names.remove(tbl)
-        connection.enable_constraint_checking()
+                tbl = converter(model._meta.db_table)
+                if tbl in table_names:
+                    with connection.schema_editor() as editor:
+                        editor.delete_model(model)
+                    table_names.remove(tbl)
+            connection.enable_constraint_checking()
 
     def column_classes(self, model):
         with connection.cursor() as cursor:
@@ -117,6 +109,14 @@ class SchemaTests(TransactionTestCase):
         """
         with connection.cursor() as cursor:
             return connection.introspection.get_constraints(cursor, table)
+
+    def get_constraints_for_column(self, model, column_name):
+        constraints = self.get_constraints(model._meta.db_table)
+        constraints_for_column = []
+        for name, details in constraints.items():
+            if details['columns'] == [column_name]:
+                constraints_for_column.append(name)
+        return sorted(constraints_for_column)
 
     # Tests
 
@@ -722,7 +722,7 @@ class SchemaTests(TransactionTestCase):
             editor.create_model(Author)
 
         old_field = Author._meta.get_field("id")
-        new_field = IntegerField(primary_key=True)
+        new_field = AutoField(primary_key=True)
         new_field.set_attributes_from_name("id")
         new_field.model = Author
         with connection.schema_editor() as editor:
@@ -730,6 +730,7 @@ class SchemaTests(TransactionTestCase):
         # This will fail if DROP DEFAULT is inadvertently executed on this
         # field which drops the id sequence, at least on PostgreSQL.
         Author.objects.create(name='Foo')
+        Author.objects.create(name='Bar')
 
     def test_alter_int_pk_to_autofield_pk(self):
         """
@@ -841,11 +842,7 @@ class SchemaTests(TransactionTestCase):
             class Meta:
                 app_label = 'schema'
                 apps = new_apps
-
-        self.local_models = [
-            LocalBookWithM2M,
-            LocalBookWithM2M._meta.get_field('tags').rel.through,
-        ]
+        self.local_models = [LocalBookWithM2M]
         # Create the tables
         with connection.schema_editor() as editor:
             editor.create_model(Author)
@@ -924,7 +921,6 @@ class SchemaTests(TransactionTestCase):
         # Create an M2M field
         new_field = M2MFieldClass("schema.TagM2MTest", related_name="authors")
         new_field.contribute_to_class(LocalAuthorWithM2M, "tags")
-        self.local_models += [new_field.rel.through]
         # Ensure there's no m2m table there
         self.assertRaises(DatabaseError, self.column_classes, new_field.rel.through)
         # Add the field
@@ -943,6 +939,13 @@ class SchemaTests(TransactionTestCase):
             editor.remove_field(LocalAuthorWithM2M, new_field)
         # Ensure there's no m2m table there
         self.assertRaises(DatabaseError, self.column_classes, new_field.rel.through)
+
+        # Make sure the model state is coherent with the table one now that
+        # we've removed the tags field.
+        opts = LocalAuthorWithM2M._meta
+        opts.local_many_to_many.remove(new_field)
+        del new_apps.all_models['schema'][new_field.rel.through._meta.model_name]
+        opts._expire_cache()
 
     def test_m2m(self):
         self._test_m2m(ManyToManyField)
@@ -1014,10 +1017,7 @@ class SchemaTests(TransactionTestCase):
                 app_label = 'schema'
                 apps = new_apps
 
-        self.local_models = [
-            LocalBookWithM2M,
-            LocalBookWithM2M._meta.get_field('tags').rel.through,
-        ]
+        self.local_models = [LocalBookWithM2M]
 
         # Create the tables
         with connection.schema_editor() as editor:
@@ -1038,11 +1038,14 @@ class SchemaTests(TransactionTestCase):
         old_field = LocalBookWithM2M._meta.get_field("tags")
         new_field = M2MFieldClass(UniqueTest)
         new_field.contribute_to_class(LocalBookWithM2M, "uniques")
-        self.local_models += [new_field.rel.through]
         with connection.schema_editor() as editor:
             editor.alter_field(LocalBookWithM2M, old_field, new_field)
         # Ensure old M2M is gone
         self.assertRaises(DatabaseError, self.column_classes, LocalBookWithM2M._meta.get_field("tags").rel.through)
+
+        # This model looks like the new model and is used for teardown.
+        opts = LocalBookWithM2M._meta
+        opts.local_many_to_many.remove(old_field)
         # Ensure the new M2M exists and points to UniqueTest
         constraints = self.get_constraints(new_field.rel.through._meta.db_table)
         if connection.features.supports_foreign_keys:
@@ -1535,3 +1538,100 @@ class SchemaTests(TransactionTestCase):
             cursor.execute("SELECT surname FROM schema_author;")
             item = cursor.fetchall()[0]
             self.assertEqual(item[0], None if connection.features.interprets_empty_strings_as_nulls else '')
+
+    def test_add_textfield_unhashable_default(self):
+        # Create the table
+        with connection.schema_editor() as editor:
+            editor.create_model(Author)
+        # Create a row
+        Author.objects.create(name='Anonymous1')
+        # Create a field that has an unhashable default
+        new_field = TextField(default={})
+        new_field.set_attributes_from_name("info")
+        with connection.schema_editor() as editor:
+            editor.add_field(Author, new_field)
+
+    @unittest.skipUnless(connection.vendor == 'postgresql', "PostgreSQL specific")
+    def test_alter_field_add_index_to_charfield(self):
+        # Create the table and verify no initial indexes.
+        with connection.schema_editor() as editor:
+            editor.create_model(Author)
+        self.assertEqual(self.get_constraints_for_column(Author, 'name'), [])
+        # Alter to add db_index=True and create 2 indexes.
+        old_field = Author._meta.get_field('name')
+        new_field = CharField(max_length=255, db_index=True)
+        new_field.set_attributes_from_name('name')
+        with connection.schema_editor() as editor:
+            editor.alter_field(Author, old_field, new_field, strict=True)
+        name_indexes = self.get_constraints_for_column(Author, 'name')
+        self.assertEqual(len(name_indexes), 2)
+        # Check that one of the indexes ends with `_like`
+        like_index = [x for x in name_indexes if x.endswith('_like')]
+        self.assertEqual(1, len(like_index), 'Index with the operator class is missing for the name column')
+        # Remove db_index=True to drop both indexes.
+        with connection.schema_editor() as editor:
+            editor.alter_field(Author, new_field, old_field, strict=True)
+        self.assertEqual(self.get_constraints_for_column(Author, 'name'), [])
+
+    @unittest.skipUnless(connection.vendor == 'postgresql', "PostgreSQL specific")
+    def test_alter_field_add_index_to_textfield(self):
+        # Create the table and verify no initial indexes.
+        with connection.schema_editor() as editor:
+            editor.create_model(Note)
+        self.assertEqual(self.get_constraints_for_column(Note, 'info'), [])
+        # Alter to add db_index=True and create 2 indexes.
+        old_field = Note._meta.get_field('info')
+        new_field = TextField(db_index=True)
+        new_field.set_attributes_from_name('info')
+        with connection.schema_editor() as editor:
+            editor.alter_field(Note, old_field, new_field, strict=True)
+        info_indexes = self.get_constraints_for_column(Note, 'info')
+        self.assertEqual(len(info_indexes), 2)
+        like_index = [x for x in info_indexes if x.endswith('_like')]
+        self.assertEqual(1, len(like_index), 'Index with the operator class is missing for the name column')
+        # Remove db_index=True to drop both indexes.
+        with connection.schema_editor() as editor:
+            editor.alter_field(Note, new_field, old_field, strict=True)
+        self.assertEqual(self.get_constraints_for_column(Note, 'info'), [])
+
+    @unittest.skipUnless(connection.vendor == 'postgresql', "PostgreSQL specific")
+    def test_alter_field_add_unique_to_charfield_with_db_index(self):
+        # Create the table and verify initial indexes.
+        with connection.schema_editor() as editor:
+            editor.create_model(BookWithoutAuthor)
+        self.assertEqual(len(self.get_constraints_for_column(BookWithoutAuthor, 'title')), 2)
+        # Alter to add unique=True (should add 1 index)
+        old_field = BookWithoutAuthor._meta.get_field('title')
+        new_field = CharField(max_length=100, db_index=True, unique=True)
+        new_field.set_attributes_from_name('title')
+        with connection.schema_editor() as editor:
+            editor.alter_field(BookWithoutAuthor, old_field, new_field, strict=True)
+        self.assertEqual(len(self.get_constraints_for_column(BookWithoutAuthor, 'title')), 3)
+        # Alter to remove unique=True (should drop unique index) # XXX: bug!
+        old_field = BookWithoutAuthor._meta.get_field('title')
+        new_field = CharField(max_length=100, db_index=True)
+        new_field.set_attributes_from_name('title')
+        with connection.schema_editor() as editor:
+            editor.alter_field(BookWithoutAuthor, old_field, new_field, strict=True)
+        self.assertEqual(len(self.get_constraints_for_column(BookWithoutAuthor, 'title')), 3)
+
+    @unittest.skipUnless(connection.vendor == 'postgresql', "PostgreSQL specific")
+    def test_alter_field_add_db_index_to_charfield_with_unique(self):
+        # Create the table and verify initial indexes.
+        with connection.schema_editor() as editor:
+            editor.create_model(Tag)
+        self.assertEqual(len(self.get_constraints_for_column(Tag, 'slug')), 2)
+        # Alter to add db_index=True
+        old_field = Tag._meta.get_field('slug')
+        new_field = SlugField(db_index=True, unique=True)
+        new_field.set_attributes_from_name('slug')
+        with connection.schema_editor() as editor:
+            editor.alter_field(Tag, old_field, new_field, strict=True)
+        self.assertEqual(len(self.get_constraints_for_column(Tag, 'slug')), 2)
+        # Alter to remove db_index=True
+        old_field = Tag._meta.get_field('slug')
+        new_field = SlugField(unique=True)
+        new_field.set_attributes_from_name('slug')
+        with connection.schema_editor() as editor:
+            editor.alter_field(Tag, old_field, new_field, strict=True)
+        self.assertEqual(len(self.get_constraints_for_column(Tag, 'slug')), 2)

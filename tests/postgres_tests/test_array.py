@@ -110,6 +110,20 @@ class TestQuerying(TestCase):
             self.objs[:1]
         )
 
+    def test_exact_charfield(self):
+        instance = CharArrayModel.objects.create(field=['text'])
+        self.assertSequenceEqual(
+            CharArrayModel.objects.filter(field=['text']),
+            [instance]
+        )
+
+    def test_exact_nested(self):
+        instance = NestedIntegerArrayModel.objects.create(field=[[1, 2], [3, 4]])
+        self.assertSequenceEqual(
+            NestedIntegerArrayModel.objects.filter(field=[[1, 2], [3, 4]]),
+            [instance]
+        )
+
     def test_isnull(self):
         self.assertSequenceEqual(
             NullableIntegerArrayModel.objects.filter(field__isnull=True),
@@ -204,6 +218,13 @@ class TestQuerying(TestCase):
             self.objs[0:3]
         )
 
+    def test_len_empty_array(self):
+        obj = NullableIntegerArrayModel.objects.create(field=[])
+        self.assertSequenceEqual(
+            NullableIntegerArrayModel.objects.filter(field__len=0),
+            [obj]
+        )
+
     def test_slice(self):
         self.assertSequenceEqual(
             NullableIntegerArrayModel.objects.filter(field__0_1=[2]),
@@ -229,6 +250,73 @@ class TestQuerying(TestCase):
                 id__in=NullableIntegerArrayModel.objects.filter(field__len=3)
             ),
             [self.objs[3]]
+        )
+
+
+class TestDateTimeExactQuerying(TestCase):
+
+    def setUp(self):
+        now = timezone.now()
+        self.datetimes = [now]
+        self.dates = [now.date()]
+        self.times = [now.time()]
+        self.objs = [
+            DateTimeArrayModel.objects.create(
+                datetimes=self.datetimes,
+                dates=self.dates,
+                times=self.times,
+            )
+        ]
+
+    def test_exact_datetimes(self):
+        self.assertSequenceEqual(
+            DateTimeArrayModel.objects.filter(datetimes=self.datetimes),
+            self.objs
+        )
+
+    def test_exact_dates(self):
+        self.assertSequenceEqual(
+            DateTimeArrayModel.objects.filter(dates=self.dates),
+            self.objs
+        )
+
+    def test_exact_times(self):
+        self.assertSequenceEqual(
+            DateTimeArrayModel.objects.filter(times=self.times),
+            self.objs
+        )
+
+
+class TestOtherTypesExactQuerying(TestCase):
+
+    def setUp(self):
+        self.ips = ['192.168.0.1', '::1']
+        self.uuids = [uuid.uuid4()]
+        self.decimals = [decimal.Decimal(1.25), 1.75]
+        self.objs = [
+            OtherTypesArrayModel.objects.create(
+                ips=self.ips,
+                uuids=self.uuids,
+                decimals=self.decimals,
+            )
+        ]
+
+    def test_exact_ip_addresses(self):
+        self.assertSequenceEqual(
+            OtherTypesArrayModel.objects.filter(ips=self.ips),
+            self.objs
+        )
+
+    def test_exact_uuids(self):
+        self.assertSequenceEqual(
+            OtherTypesArrayModel.objects.filter(uuids=self.uuids),
+            self.objs
+        )
+
+    def test_exact_decimals(self):
+        self.assertSequenceEqual(
+            OtherTypesArrayModel.objects.filter(decimals=self.decimals),
+            self.objs
         )
 
 
@@ -483,6 +571,11 @@ class TestSplitFormField(TestCase):
         form = SplitForm(data)
         self.assertFalse(form.is_valid())
         self.assertEqual(form.errors, {'array': ['Item 2 in the array did not validate: This field is required.']})
+
+    def test_invalid_integer(self):
+        msg = 'Item 1 in the array did not validate: Ensure this value is less than or equal to 100.'
+        with self.assertRaisesMessage(exceptions.ValidationError, msg):
+            SplitArrayField(forms.IntegerField(max_value=100), size=2).clean([0, 101])
 
     def test_rendering(self):
         class SplitForm(forms.Form):

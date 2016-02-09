@@ -14,7 +14,9 @@ from unittest import skipUnless
 from django.conf import settings
 from django.template import Context, Template
 from django.template.base import TemplateSyntaxError
-from django.test import RequestFactory, TestCase, override_settings
+from django.test import (
+    RequestFactory, SimpleTestCase, TestCase, override_settings,
+)
 from django.utils import six, translation
 from django.utils._os import upath
 from django.utils.formats import (
@@ -137,6 +139,18 @@ class TranslationTests(TestCase):
         self.assertEqual(s, s2)
         s4 = ugettext_lazy('Some other string')
         self.assertNotEqual(s, s4)
+
+    @skipUnless(six.PY2, "No more bytestring translations on PY3")
+    def test_bytestrings(self):
+        """gettext() returns a bytestring if input is bytestring."""
+
+        # Using repr() to check translated text and type
+        self.assertEqual(repr(gettext(b"Time")), repr(b"Time"))
+        self.assertEqual(repr(gettext("Time")), repr("Time"))
+
+        with translation.override('de', deactivate=True):
+            self.assertEqual(repr(gettext(b"Time")), repr(b"Zeit"))
+            self.assertEqual(repr(gettext("Time")), repr(b"Zeit"))
 
     @skipUnless(six.PY2, "No more bytestring translations on PY3")
     def test_lazy_and_bytestrings(self):
@@ -912,6 +926,14 @@ class FormattingTests(TestCase):
                 '<input id="id_date_added" name="date_added" type="hidden" value="31.12.2009 06:00:00" />; <input id="id_cents_paid" name="cents_paid" type="hidden" value="59,47" />'
             )
 
+    def test_format_arbitrary_settings(self):
+        self.assertEqual(get_format('DEBUG'), 'DEBUG')
+
+    def test_get_custom_format(self):
+        with self.settings(FORMAT_MODULE_PATH='i18n.other.locale'):
+            with translation.override('fr', deactivate=True):
+                self.assertEqual('d/m/Y CUSTOM', get_format('CUSTOM_DAY_FORMAT'))
+
 
 class MiscTests(TestCase):
 
@@ -1248,6 +1270,10 @@ class TestLanguageInfo(TestCase):
 
     def test_unknown_language_code(self):
         six.assertRaisesRegex(self, KeyError, r"Unknown language code xx\.", get_language_info, 'xx')
+        with translation.override('xx'):
+            # A language with no translation catalogs should fallback to the
+            # untranslated string.
+            self.assertEqual(ugettext("Title"), "Title")
 
     def test_unknown_only_country_code(self):
         li = get_language_info('de-xx')
@@ -1504,3 +1530,22 @@ class TranslationFilesMissing(TestCase):
         self.patchGettextFind()
         trans_real._translations = {}
         self.assertRaises(IOError, activate, 'en')
+
+
+class NonDjangoLanguageTests(SimpleTestCase):
+    """
+    A language non present in default Django languages can still be
+    installed/used by a Django project.
+    """
+    @override_settings(
+        USE_I18N=True,
+        LANGUAGES=[
+            ('en-us', 'English'),
+            ('xxx', 'Somelanguage'),
+        ],
+        LANGUAGE_CODE='xxx',
+        LOCALE_PATHS=[os.path.join(here, 'commands', 'locale')],
+    )
+    def test_non_django_language(self):
+        self.assertEqual(get_language(), 'xxx')
+        self.assertEqual(ugettext("year"), "reay")

@@ -70,8 +70,6 @@ as a shorter alias, ``_``, to save typing.
        global ``_()`` function causes interference. Explicitly importing
        ``ugettext()`` as ``_()`` avoids this problem.
 
-.. highlightlang:: python
-
 In this example, the text ``"Welcome to my site."`` is marked as a translation
 string::
 
@@ -960,7 +958,7 @@ You hook it up like this::
     }
 
     urlpatterns = [
-        url(r'^jsi18n/$', javascript_catalog, js_info_dict),
+        url(r'^jsi18n/$', javascript_catalog, js_info_dict, name='javascript-catalog'),
     ]
 
 Each string in ``packages`` should be in Python dotted-package syntax (the
@@ -980,7 +978,7 @@ changed by altering the ``domain`` argument.
 You can make the view dynamic by putting the packages into the URL pattern::
 
     urlpatterns = [
-        url(r'^jsi18n/(?P<packages>\S+?)/$', javascript_catalog),
+        url(r'^jsi18n/(?P<packages>\S+?)/$', javascript_catalog, name='javascript-catalog'),
     ]
 
 With this, you specify the packages as a list of package names delimited by '+'
@@ -1005,7 +1003,7 @@ To use the catalog, just pull in the dynamically generated script like this:
 
 .. code-block:: html+django
 
-    <script type="text/javascript" src="{% url 'django.views.i18n.javascript_catalog' %}"></script>
+    <script type="text/javascript" src="{% url 'javascript-catalog' %}"></script>
 
 This uses reverse URL lookup to find the URL of the JavaScript catalog view.
 When the catalog is loaded, your JavaScript code can use the following methods:
@@ -1158,6 +1156,8 @@ Additionally, if there are complex rules around pluralization, the catalog view
 will render a conditional expression. This will evaluate to either a ``true``
 (should pluralize) or ``false`` (should **not** pluralize) value.
 
+.. highlightlang:: python
+
 Note on performance
 -------------------
 
@@ -1251,7 +1251,7 @@ prepend the current active language code to all url patterns defined within
     from sitemap.views import sitemap
 
     urlpatterns = [
-        url(r'^sitemap\.xml$', sitemap, name='sitemap_xml'),
+        url(r'^sitemap\.xml$', sitemap, name='sitemap-xml'),
     ]
 
     news_patterns = [
@@ -1269,11 +1269,11 @@ After defining these URL patterns, Django will automatically add the
 language prefix to the URL patterns that were added by the ``i18n_patterns``
 function. Example::
 
-    from django.core.urlresolvers import reverse
-    from django.utils.translation import activate
+    >>> from django.core.urlresolvers import reverse
+    >>> from django.utils.translation import activate
 
     >>> activate('en')
-    >>> reverse('sitemap_xml')
+    >>> reverse('sitemap-xml')
     '/sitemap.xml'
     >>> reverse('news:index')
     '/en/news/'
@@ -1309,7 +1309,7 @@ URL patterns can also be marked translatable using the
     from sitemaps.views import sitemap
 
     urlpatterns = [
-        url(r'^sitemap\.xml$', sitemap, name='sitemap_xml'),
+        url(r'^sitemap\.xml$', sitemap, name='sitemap-xml'),
     ]
 
     news_patterns = [
@@ -1327,8 +1327,8 @@ After you've created the translations, the
 :func:`~django.core.urlresolvers.reverse` function will return the URL in the
 active language. Example::
 
-    from django.core.urlresolvers import reverse
-    from django.utils.translation import activate
+    >>> from django.core.urlresolvers import reverse
+    >>> from django.utils.translation import activate
 
     >>> activate('en')
     >>> reverse('news:category', kwargs={'slug': 'recent'})
@@ -1623,8 +1623,6 @@ translation utilities with a ``gettext`` package if the command ``xgettext
 Customizing the ``makemessages`` command
 ----------------------------------------
 
-.. highlightlang:: python
-
 If you want to pass additional parameters to ``xgettext``, you need to create a
 custom :djadmin:`makemessages` command and override its ``xgettext_options``
 attribute::
@@ -1662,8 +1660,6 @@ Miscellaneous
 
 The ``set_language`` redirect view
 ----------------------------------
-
-.. highlightlang:: python
 
 .. currentmodule:: django.views.i18n
 
@@ -1726,8 +1722,6 @@ redirected in the ``redirect_to`` context variable.
 
 Explicitly setting the active language
 --------------------------------------
-
-.. highlightlang:: python
 
 You may want to set the active language for the current session explicitly. Perhaps
 a user's language preference is retrieved from another system, for example.

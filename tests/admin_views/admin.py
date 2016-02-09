@@ -30,13 +30,14 @@ from .models import (
     EmptyModelHidden, EmptyModelMixin, EmptyModelVisible, ExplicitlyProvidedPK,
     ExternalSubscriber, Fabric, FancyDoodad, FieldOverridePost,
     FilteredManager, FooAccount, FoodDelivery, FunkyTag, Gadget, Gallery,
-    Grommet, ImplicitlyGeneratedPK, Ingredient, InlineReference, InlineReferer,
-    Inquisition, Language, Link, MainPrepopulated, ModelWithStringPrimaryKey,
-    NotReferenced, OldSubscriber, OtherStory, Paper, Parent,
-    ParentWithDependentChildren, Person, Persona, Picture, Pizza, Plot,
-    PlotDetails, PluggableSearchPerson, Podcast, Post, PrePopulatedPost,
-    PrePopulatedPostLargeSlug, PrePopulatedSubPost, Promo, Question, Recipe,
-    Recommendation, Recommender, ReferencedByInline, ReferencedByParent,
+    GenRelReference, Grommet, ImplicitlyGeneratedPK, Ingredient,
+    InlineReference, InlineReferer, Inquisition, Language, Link,
+    MainPrepopulated, ModelWithStringPrimaryKey, NotReferenced, OldSubscriber,
+    OtherStory, Paper, Parent, ParentWithDependentChildren, Person, Persona,
+    Picture, Pizza, Plot, PlotDetails, PlotProxy, PluggableSearchPerson,
+    Podcast, Post, PrePopulatedPost, PrePopulatedPostLargeSlug,
+    PrePopulatedSubPost, Promo, Question, Recipe, Recommendation, Recommender,
+    ReferencedByGenRel, ReferencedByInline, ReferencedByParent,
     RelatedPrepopulated, Report, Reservation, Restaurant,
     RowLevelChangePermissionModel, Section, ShortMessage, Simple, Sketch,
     State, Story, StumpJoke, Subscriber, SuperVillain, Telegram, Thing,
@@ -377,7 +378,7 @@ class LinkInline(admin.TabularInline):
     model = Link
     extra = 1
 
-    readonly_fields = ("posted", "multiline")
+    readonly_fields = ("posted", "multiline", "readonly_link_content")
 
     def multiline(self, instance):
         return "InlineMultiline\ntest\nstring"
@@ -424,7 +425,7 @@ class PostAdmin(admin.ModelAdmin):
     list_display = ['title', 'public']
     readonly_fields = (
         'posted', 'awesomeness_level', 'coolness', 'value',
-        'multiline', 'multiline_html', lambda obj: "foo"
+        'multiline', 'multiline_html', lambda obj: "foo", 'readonly_content',
     )
 
     inlines = [
@@ -848,6 +849,10 @@ class InlineRefererAdmin(admin.ModelAdmin):
     inlines = [InlineReferenceInline]
 
 
+class PlotReadonlyAdmin(admin.ModelAdmin):
+    readonly_fields = ('plotdetails',)
+
+
 class GetFormsetsArgumentCheckingAdmin(admin.ModelAdmin):
     fields = ['name']
 
@@ -902,6 +907,7 @@ site.register(Villain)
 site.register(SuperVillain)
 site.register(Plot)
 site.register(PlotDetails)
+site.register(PlotProxy, PlotReadonlyAdmin)
 site.register(CyclicOne)
 site.register(CyclicTwo)
 site.register(WorkHour, WorkHourAdmin)
@@ -928,6 +934,8 @@ site.register(ReferencedByParent)
 site.register(ChildOfReferer)
 site.register(ReferencedByInline)
 site.register(InlineReferer, InlineRefererAdmin)
+site.register(ReferencedByGenRel)
+site.register(GenRelReference)
 
 # We intentionally register Promo and ChapterXtra1 but not Chapter nor ChapterXtra2.
 # That way we cover all four cases:

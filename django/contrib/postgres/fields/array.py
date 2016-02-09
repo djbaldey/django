@@ -5,15 +5,13 @@ from django.contrib.postgres.forms import SimpleArrayField
 from django.contrib.postgres.validators import ArrayMaxLengthValidator
 from django.core import checks, exceptions
 from django.db.models import Field, IntegerField, Transform
+from django.db.models.lookups import Exact
 from django.utils import six
 from django.utils.translation import string_concat, ugettext_lazy as _
 
+from .utils import AttributeSetter
+
 __all__ = ['ArrayField']
-
-
-class AttributeSetter(object):
-    def __init__(self, name, value):
-        setattr(self, name, value)
 
 
 class ArrayField(Field):
@@ -165,7 +163,7 @@ class ArrayField(Field):
 class ArrayContains(lookups.DataContains):
     def as_sql(self, qn, connection):
         sql, params = super(ArrayContains, self).as_sql(qn, connection)
-        sql += '::%s' % self.lhs.output_field.db_type(connection)
+        sql = '%s::%s' % (sql, self.lhs.output_field.db_type(connection))
         return sql, params
 
 
@@ -173,7 +171,15 @@ class ArrayContains(lookups.DataContains):
 class ArrayContainedBy(lookups.ContainedBy):
     def as_sql(self, qn, connection):
         sql, params = super(ArrayContainedBy, self).as_sql(qn, connection)
-        sql += '::%s' % self.lhs.output_field.db_type(connection)
+        sql = '%s::%s' % (sql, self.lhs.output_field.db_type(connection))
+        return sql, params
+
+
+@ArrayField.register_lookup
+class ArrayExact(Exact):
+    def as_sql(self, qn, connection):
+        sql, params = super(ArrayExact, self).as_sql(qn, connection)
+        sql = '%s::%s' % (sql, self.lhs.output_field.db_type(connection))
         return sql, params
 
 
@@ -181,7 +187,7 @@ class ArrayContainedBy(lookups.ContainedBy):
 class ArrayOverlap(lookups.Overlap):
     def as_sql(self, qn, connection):
         sql, params = super(ArrayOverlap, self).as_sql(qn, connection)
-        sql += '::%s' % self.lhs.output_field.db_type(connection)
+        sql = '%s::%s' % (sql, self.lhs.output_field.db_type(connection))
         return sql, params
 
 
@@ -192,7 +198,11 @@ class ArrayLenTransform(Transform):
 
     def as_sql(self, compiler, connection):
         lhs, params = compiler.compile(self.lhs)
-        return 'array_length(%s, 1)' % lhs, params
+        # Distinguish NULL and empty arrays
+        return (
+            'CASE WHEN %(lhs)s IS NULL THEN NULL ELSE '
+            'coalesce(array_length(%(lhs)s, 1), 0) END'
+        ) % {'lhs': lhs}, params
 
 
 class IndexTransform(Transform):

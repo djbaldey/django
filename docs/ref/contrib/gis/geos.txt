@@ -65,11 +65,20 @@ created by passing in the X and Y coordinates into its constructor::
     >>> from django.contrib.gis.geos import Point
     >>> pnt = Point(5, 23)
 
-Finally, there are :func:`fromstr` and :func:`fromfile` factory methods, which
-return a :class:`GEOSGeometry` object from an input string or a file::
+All these constructors take the keyword argument ``srid``. For example::
 
-    >>> from django.contrib.gis.geos import fromstr, fromfile
-    >>> pnt = fromstr('POINT(5 23)')
+    >>> from django.contrib.gis.geos import GEOSGeometry, LineString, Point
+    >>> print(GEOSGeometry('POINT (0 0)', srid=4326))
+    SRID=4326;POINT (0.0000000000000000 0.0000000000000000)
+    >>> print(LineString((0, 0), (1, 1), srid=4326))
+    SRID=4326;LINESTRING (0.0000000000000000 0.0000000000000000, 1.0000000000000000 1.0000000000000000)
+    >>> print(Point(0, 0, srid=32140))
+    SRID=32140;POINT (0.0000000000000000 0.0000000000000000)
+
+Finally, there is the :func:`fromfile` factory method which returns a
+:class:`GEOSGeometry` object from a file::
+
+    >>> from django.contrib.gis.geos import fromfile
     >>> pnt = fromfile('/path/to/pnt.wkt')
     >>> pnt = fromfile(open('/path/to/pnt.wkt'))
 
@@ -171,6 +180,17 @@ Properties
 .. attribute:: GEOSGeometry.coords
 
 Returns the coordinates of the geometry as a tuple.
+
+.. attribute:: GEOSGeometry.dims
+
+Returns the dimension of the geometry:
+
+* ``0`` for :class:`Point`\s and :class:`MultiPoint`\s
+* ``1`` for :class:`LineString`\s and :class:`MultiLineString`\s
+* ``2`` for :class:`Polygon`\s and :class:`MultiPolygon`\s
+* ``-1`` for empty :class:`GeometryCollection`\s
+* the maximum dimension of its elements for non-empty
+  :class:`GeometryCollection`\s
 
 .. attribute:: GEOSGeometry.empty
 
@@ -282,7 +302,9 @@ that are a part of this geometry.
 
 .. attribute:: GEOSGeometry.json
 
-Returns the GeoJSON representation of the geometry.
+Returns the GeoJSON representation of the geometry. Note that the result is not
+a complete GeoJSON structure but only the ``geometry`` key content of a
+GeoJSON structure. See also :doc:`/ref/contrib/gis/serializers`.
 
 .. note::
 
@@ -338,7 +360,8 @@ return a boolean.
 
 .. method:: GEOSGeometry.contains(other)
 
-Returns ``True`` if :meth:`GEOSGeometry.within` is ``False``.
+Returns ``True`` if :meth:`other.within(this) <GEOSGeometry.within>` returns
+``True``.
 
 .. method:: GEOSGeometry.crosses(other)
 
@@ -415,7 +438,7 @@ The normalized version takes the distance as a float between 0 (origin) and 1
 
 Reverse of :meth:`GEOSGeometry.project`.
 
-.. method:: GEOSGeometry:intersection(other)
+.. method:: GEOSGeometry.intersection(other)
 
 Returns a :class:`GEOSGeometry` representing the points shared by this
 geometry and other.
@@ -550,7 +573,7 @@ is returned instead.
 .. note::
 
     Requires GDAL. Raises :class:`~django.contrib.gis.geos.GEOSException` if
-    GDAL is not available or if the SRID is ``None`` or less than 0.
+    GDAL is not available or if the geometry's SRID is ``None`` or less than 0.
 
 ``Point``
 ---------
@@ -799,6 +822,9 @@ Example::
    :param srid: spatial reference identifier
    :type srid: int
    :rtype: a :class:`GEOSGeometry` corresponding to the spatial data in the string
+
+``fromstr(string, srid)`` is equivalent to :class:`GEOSGeometry(string, srid)
+<GEOSGeometry>`.
 
 Example::
 

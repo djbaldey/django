@@ -49,19 +49,57 @@ from .models import (
     Chapter, Character, Child, Choice, City, Collector, Color2,
     ComplexSortedPerson, CoverLetter, CustomArticle, DooHickey, Employee,
     EmptyModel, FancyDoodad, FieldOverridePost, FilteredManager, FooAccount,
-    FoodDelivery, FunkyTag, Gallery, Grommet, Inquisition, Language,
+    FoodDelivery, FunkyTag, Gallery, Grommet, Inquisition, Language, Link,
     MainPrepopulated, ModelWithStringPrimaryKey, OtherStory, Paper, Parent,
     ParentWithDependentChildren, Person, Persona, Picture, Pizza, Plot,
-    PluggableSearchPerson, Podcast, Post, Promo, Question, RelatedPrepopulated,
-    Report, Restaurant, RowLevelChangePermissionModel, Section, ShortMessage,
-    Simple, Story, Subscriber, Telegram, Topping, UnchangeableObject,
-    UndeletableObject, UnorderedObject, Vodcast, Whatsit, Widget, Worker,
-    WorkHour,
+    PlotDetails, PluggableSearchPerson, Podcast, Post, Promo, Question,
+    RelatedPrepopulated, Report, Restaurant, RowLevelChangePermissionModel,
+    Section, ShortMessage, Simple, Story, Subscriber, Telegram, Topping,
+    UnchangeableObject, UndeletableObject, UnorderedObject, Villain, Vodcast,
+    Whatsit, Widget, Worker, WorkHour,
 )
 
 
 ERROR_MESSAGE = "Please enter the correct username and password \
 for a staff account. Note that both fields may be case-sensitive."
+
+
+class AdminFieldExtractionMixin(object):
+    """
+    Helper methods for extracting data from AdminForm.
+    """
+    def get_admin_form_fields(self, response):
+        """
+        Return a list of AdminFields for the AdminForm in the response.
+        """
+        admin_form = response.context['adminform']
+        fieldsets = list(admin_form)
+
+        field_lines = []
+        for fieldset in fieldsets:
+            field_lines += list(fieldset)
+
+        fields = []
+        for field_line in field_lines:
+            fields += list(field_line)
+
+        return fields
+
+    def get_admin_fields(self, response):
+        """
+        Return the fields for the response's AdminForm.
+        """
+        return [f for f in self.get_admin_form_fields(response)]
+
+    def get_admin_field(self, response, field_name):
+        """
+        Return the field for the given field_name.
+        """
+        fields = self.get_admin_fields(response)
+        for field in fields:
+            name = field.field['name'] if isinstance(field.field, dict) else field.field.name
+            if name == field_name:
+                return field
 
 
 @override_settings(PASSWORD_HASHERS=('django.contrib.auth.hashers.SHA1PasswordHasher',),
@@ -299,16 +337,16 @@ class AdminViewBasicTest(AdminViewBasicTestCase):
         (column 6 is 'model_year_reverse' in ArticleAdmin)
         """
         response = self.client.get(reverse('admin:admin_views_article_changelist'), {'o': '6'})
-        self.assertContentBefore(response, '2009', '2008',
+        self.assertContentBefore(response, '2009,', '2008,',
             "Results of sorting on ModelAdmin method are out of order.")
-        self.assertContentBefore(response, '2008', '2000',
+        self.assertContentBefore(response, '2008,', '2000,',
             "Results of sorting on ModelAdmin method are out of order.")
         # Let's make sure the ordering is right and that we don't get a
         # FieldError when we change to descending order
         response = self.client.get(reverse('admin:admin_views_article_changelist'), {'o': '-6'})
-        self.assertContentBefore(response, '2000', '2008',
+        self.assertContentBefore(response, '2000,', '2008,',
             "Results of sorting on ModelAdmin method are out of order.")
-        self.assertContentBefore(response, '2008', '2009',
+        self.assertContentBefore(response, '2008,', '2009,',
             "Results of sorting on ModelAdmin method are out of order.")
 
     def test_change_list_sorting_multiple(self):
@@ -639,6 +677,14 @@ class AdminViewBasicTest(AdminViewBasicTestCase):
         # model should be allowed.
         response = self.client.get(reverse('admin:admin_views_referencedbyinline_changelist'), {TO_FIELD_VAR: 'name'})
         self.assertEqual(response.status_code, 200)
+
+        # #25622 - Specifying a field of a model only referred by a generic
+        # relation should raise DisallowedModelAdminToField.
+        url = reverse('admin:admin_views_referencedbygenrel_changelist')
+        with patch_logger('django.security.DisallowedModelAdminToField', 'error') as calls:
+            response = self.client.get(url, {TO_FIELD_VAR: 'object_id'})
+            self.assertEqual(response.status_code, 400)
+            self.assertEqual(len(calls), 1)
 
         # We also want to prevent the add, change, and delete views from
         # leaking a disallowed field value.
@@ -4015,7 +4061,7 @@ class SeleniumAdminViewsIETests(SeleniumAdminViewsFirefoxTests):
 
 @override_settings(PASSWORD_HASHERS=('django.contrib.auth.hashers.SHA1PasswordHasher',),
     ROOT_URLCONF="admin_views.urls")
-class ReadonlyTest(TestCase):
+class ReadonlyTest(AdminFieldExtractionMixin, TestCase):
     fixtures = ['admin-views-users.xml']
 
     def setUp(self):
@@ -4057,6 +4103,21 @@ class ReadonlyTest(TestCase):
         response = self.client.get(reverse('admin:admin_views_post_change', args=(p.pk,)))
         self.assertContains(response, "%d amount of cool" % p.pk)
 
+    def test_readonly_text_field(self):
+        p = Post.objects.create(
+            title="Readonly test", content="test",
+            readonly_content='test\r\n\r\ntest\r\n\r\ntest\r\n\r\ntest',
+        )
+        Link.objects.create(
+            url="http://www.djangoproject.com", post=p,
+            readonly_link_content="test\r\nlink",
+        )
+        response = self.client.get(reverse('admin:admin_views_post_change', args=(p.pk,)))
+        # Checking readonly field.
+        self.assertContains(response, 'test<br /><br />test<br /><br />test<br /><br />test')
+        # Checking readonly field in inline.
+        self.assertContains(response, 'test<br />link')
+
     def test_readonly_post(self):
         data = {
             "title": "Django Got Readonly Fields",
@@ -4097,7 +4158,7 @@ class ReadonlyTest(TestCase):
         self.assertContains(response, '<p>No opinion</p>', html=True)
         self.assertNotContains(response, '<p>(None)</p>')
 
-    def test_readonly_backwards_ref(self):
+    def test_readonly_manytomany_backwards_ref(self):
         """
         Regression test for #16433 - backwards references for related objects
         broke if the related field is read-only due to the help_text attribute
@@ -4107,6 +4168,26 @@ class ReadonlyTest(TestCase):
         pizza.toppings.add(topping)
         response = self.client.get(reverse('admin:admin_views_topping_add'))
         self.assertEqual(response.status_code, 200)
+
+    def test_readonly_onetoone_backwards_ref(self):
+        """
+        Can reference a reverse OneToOneField in ModelAdmin.readonly_fields.
+        """
+        v1 = Villain.objects.create(name='Adam')
+        pl = Plot.objects.create(name='Test Plot', team_leader=v1, contact=v1)
+        pd = PlotDetails.objects.create(details='Brand New Plot', plot=pl)
+
+        response = self.client.get(reverse('admin:admin_views_plotproxy_change', args=(pl.pk,)))
+        field = self.get_admin_field(response, 'plotdetails')
+        self.assertEqual(field.contents(), 'Brand New Plot')
+
+        # The reverse relation also works if the OneToOneField is null.
+        pd.plot = None
+        pd.save()
+
+        response = self.client.get(reverse('admin:admin_views_plotproxy_change', args=(pl.pk,)))
+        field = self.get_admin_field(response, 'plotdetails')
+        self.assertEqual(force_text(field.contents()), '(None)')
 
     def test_readonly_field_overrides(self):
         """
@@ -4793,19 +4874,19 @@ class AdminCustomSaveRelatedTests(TestCase):
 
 @override_settings(PASSWORD_HASHERS=('django.contrib.auth.hashers.SHA1PasswordHasher',),
     ROOT_URLCONF="admin_views.urls")
-class AdminViewLogoutTest(TestCase):
+class AdminViewLogoutTests(TestCase):
     fixtures = ['admin-views-users.xml']
 
-    def setUp(self):
+    def test_logout(self):
         self.client.login(username='super', password='secret')
-
-    def test_client_logout_url_can_be_used_to_login(self):
         response = self.client.get(reverse('admin:logout'))
         self.assertEqual(response.status_code, 200)
         self.assertTemplateUsed(response, 'registration/logged_out.html')
         self.assertEqual(response.request['PATH_INFO'], reverse('admin:logout'))
+        self.assertFalse(response.context['has_permission'])
+        self.assertNotContains(response, 'user-tools')  # user-tools div shouldn't visible.
 
-        # we are now logged out
+    def test_client_logout_url_can_be_used_to_login(self):
         response = self.client.get(reverse('admin:logout'))
         self.assertEqual(response.status_code, 302)  # we should be redirected to the login page.
 

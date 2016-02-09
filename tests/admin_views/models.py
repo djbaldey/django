@@ -419,6 +419,7 @@ class Link(models.Model):
     )
     url = models.URLField()
     post = models.ForeignKey("Post")
+    readonly_link_content = models.TextField()
 
 
 class PrePopulatedPost(models.Model):
@@ -436,6 +437,7 @@ class PrePopulatedSubPost(models.Model):
 class Post(models.Model):
     title = models.CharField(max_length=100, help_text="Some help text for the title (with unicode ŠĐĆŽćžšđ)")
     content = models.TextField(help_text="Some help text for the content (with unicode ŠĐĆŽćžšđ)")
+    readonly_content = models.TextField()
     posted = models.DateField(
         default=datetime.date.today,
         help_text="Some help text for the date (with unicode ŠĐĆŽćžšđ)"
@@ -499,10 +501,15 @@ class Plot(models.Model):
 @python_2_unicode_compatible
 class PlotDetails(models.Model):
     details = models.CharField(max_length=100)
-    plot = models.OneToOneField(Plot)
+    plot = models.OneToOneField(Plot, null=True, blank=True)
 
     def __str__(self):
         return self.details
+
+
+class PlotProxy(Plot):
+    class Meta:
+        proxy = True
 
 
 @python_2_unicode_compatible
@@ -891,3 +898,14 @@ class ExplicitlyProvidedPK(models.Model):
 
 class ImplicitlyGeneratedPK(models.Model):
     name = models.IntegerField(unique=True)
+
+
+# Models for #25622
+class ReferencedByGenRel(models.Model):
+    content_type = models.ForeignKey(ContentType, on_delete=models.CASCADE)
+    object_id = models.PositiveIntegerField()
+    content_object = GenericForeignKey('content_type', 'object_id')
+
+
+class GenRelReference(models.Model):
+    references = GenericRelation(ReferencedByGenRel)

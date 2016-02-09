@@ -20,9 +20,11 @@ and some features have reached the end of their deprecation process and
 Python compatibility
 ====================
 
-Django 1.7 requires Python 2.7 or above, though we **highly recommend**
-the latest minor release. Support for Python 2.6 has been dropped and support
-for Python 3.4 has been added.
+Django 1.7 requires Python 2.7, 3.2, 3.3, or 3.4. We **highly recommend** and
+only officially support the latest release of each series.
+
+The Django 1.6 series is the last to support Python 2.6. Django 1.7 is the
+first release to support Python 3.4.
 
 This change should affect only a small number of Django users, as most
 operating-system vendors today are shipping Python 2.7 or newer as their default
@@ -278,7 +280,7 @@ Custom lookups
 ~~~~~~~~~~~~~~
 
 It is now possible to write custom lookups and transforms for the ORM.
-Custom lookups work just like Django's inbuilt lookups (e.g. ``lte``,
+Custom lookups work just like Django's built-in lookups (e.g. ``lte``,
 ``icontains``) while transforms are a new concept.
 
 The :class:`django.db.models.Lookup` class provides a way to add lookup
@@ -1459,6 +1461,11 @@ Miscellaneous
   :class:`~django.contrib.auth.middleware.SessionAuthenticationMiddleware` to
   the default project template (pre-1.7.2 only), a database must be created
   before accessing a page using :djadmin:`runserver`.
+
+* The addition of the ``schemes`` argument to ``URLValidator`` will appear
+  as a backwards-incompatible change if you were previously using a custom
+  regular expression to validate schemes. Any scheme not listed in ``schemes``
+  will fail validation, even if the regular expression matches the given URL.
 
 .. _deprecated-features-1.7:
 
